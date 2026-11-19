@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>스톡피시 AI 체스 — Stockfish Chess</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chess.js 규칙 엔진 (0.10.3) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+  <!-- Google Fonts: Noto Sans KR & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans KR"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    :root {
+      /* 기본 테마: 토너먼트 에메랄드 */
+      --sq-light: #ebecd0;
+      --sq-dark: #739552;
+      --sq-coord-light: #739552;
+      --sq-coord-dark: #ebecd0;
+      --sq-selected: rgba(245, 246, 130, 0.82);
+      --sq-last-from: rgba(245, 246, 130, 0.52);
+      --sq-last-to: rgba(245, 246, 130, 0.65);
+      --sq-hint-from: rgba(56, 189, 248, 0.62);ㅊ
+      --sq-hint-to: rgba(16, 185, 129, 0.68);
+    }
+
+    [data-board-theme="wood"] {
+      --sq-light: #f0d9b5;
+      --sq-dark: #b58863;
+      --sq-coord-light: #b58863;
+      --sq-coord-dark: #f0d9b5;
+    }
+
+    [data-board-theme="slate"] {
+      --sq-light: #dee3e6;
+      --sq-dark: #5d738a;
+      --sq-coord-light: #5d738a;
+      --sq-coord-dark: #dee3e6;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #0f172a;
+      color: #f1f5f9;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    .sq-light {
+      background-color: var(--sq-light);
+    }
+
+    .sq-dark {
+      background-color: var(--sq-dark);
+    }
+
+    .coord-on-light {
+      color: var(--sq-coord-light);
+    }
+
+    .coord-on-dark {
+      color: var(--sq-coord-dark);
+    }
+
+    .sq-selected {
+      background-color: var(--sq-selected) !important;
+    }
+
+    .sq-last-from {
+      box-shadow: inset 0 0 0 9999px var(--sq-last-from);
+    }
+
+    .sq-last-to {
+      box-shadow: inset 0 0 0 9999px var(--sq-last-to);
+    }
+
+    .sq-hint-from {
+      box-shadow: inset 0 0 0 9999px var(--sq-hint-from);
+      animation: hintPulse 1.2s ease-in-out infinite;
+    }
+
+    .sq-hint-to {
+      box-shadow: inset 0 0 0 9999px var(--sq-hint-to);
+      animation: hintPulse 1.2s ease-in-out infinite;
+    }
+
+    .sq-check {
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.65) 55%, rgba(185, 28, 28, 0) 80%) !important;
+    }
+
+    @keyframes hintPulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.16); }
+    }
+
+    /* 기물 SVG 부드러운 트랜지션 */
+    .chess-piece {
+      width: 84%;
+      height: 84%;
+      transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
+      pointer-events: none;
+      filter: drop-shadow(0 2px 2.5px rgba(0, 0, 0, 0.32));
+    }
+
+    .square-cell:hover .chess-piece {
+      transform: translateY(-1.5px) scale(1.03);
+    }
+
+    /* 합법 이동 표시 점 & 잡기 링 */
+    .move-dot {
+      width: 30%;
+      height: 30%;
+      border-radius: 9999px;
+      background-color: rgba(15, 23, 42, 0.24);
+      pointer-events: none;
+    }
+
+    .capture-ring {
+      position: absolute;
+      inset: 7%;
+      border-radius: 9999px;
+      border: 4.5px solid rgba(15, 23, 42, 0.26);
+      pointer-events: none;
+    }
+
+    /* 커스텀 스크롤바 */
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.7);
+    }
+
+    /* 드래그 중인 플로팅 기물 */
+    #drag-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%) scale(1.14);
+      filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.45));
+      display: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/30">
+
+  <!-- 상단 헤더 -->
+  <header class="w-full border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+      <!-- 로고 & 타이틀 -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-950/50 border border-emerald-400/30">
+          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 22H5v-2h14v2M17.16 8.26A4.96 4.96 0 0 0 18 5.5C18 3.57 16.43 2 14.5 2c-1.3 0-2.42.72-3 1.79A3.48 3.48 0 0 0 8.5 2C6.57 2 5 3.57 5 5.5c0 1.12.53 2.11 1.35 2.75L4 18h16l-2.84-9.74Z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white">스톡피시 AI 체스</h1>
+            <span id="engine-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-amber-300 border border-slate-700/80">
+              <span id="engine-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span id="engine-status-text">엔진 초기화 중...</span>
+            </span>
+          </div>
+          <p class="hidden sm:block text-xs text-slate-400">Stockfish UCI 엔진 기반 실시간 형세 분석 &amp; 8단계 인공지능 대국</p>
+        </div>
+      </div>
+
+      <!-- 우측 빠른 유틸리티 버튼 -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <button id="btn-theme" type="button" title="체스판 색상 테마 변경" class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs sm:text-sm font-medium border border-slate-700/70 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+          </svg>
+          <span id="theme-label" class="hidden md:inline">그린 테마</span>
+        </button>
+
+        <button id="btn-sound" type="button" title="효과음 켜기/끄기" class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs sm:text-sm font-medium border border-slate-700/70 transition flex items-center gap-1.5">
+          <svg id="icon-sound-on" class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <svg id="icon-sound-off" class="w-4 h-4 text-slate-500 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+          <span class="hidden md:inline" id="sound-label">소리 켜짐</span>
+        </button>
+
+        <button id="btn-open-setup" type="button" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-950/60 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>새 게임</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 게임 컨테이너 -->
+  <main class="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-6 py-3 sm:py-5 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 lg:gap-6">
+
+    <!-- 좌측: 체스판 + 형세 판단 바 섹션 -->
+    <section class="w-full max-w-[600px] lg:max-w-none lg:w-auto flex flex-col items-center justify-center">
+
+      <!-- 상단 플레이어(상대방/AI) 바 -->
+      <div class="w-full flex items-center justify-between px-2 py-2 mb-1.5 rounded-xl bg-slate-900/90 border border-slate-800/90">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div id="top-avatar" class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold shrink-0">
+            🤖
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span id="top-player-name" class="text-sm font-bold text-slate-100 truncate">스톡피시 AI (Lv.4 중급)</span>
+              <span id="ai-thinking-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                수 계산 중...
+              </span>
+            </div>
+            <!-- 잡은 기물 & 기물 점수 우위 -->
+            <div class="flex items-center gap-1.5 h-5 mt-0.5">
+              <div id="top-captured" class="flex items-center -space-x-1"></div>
+              <span id="top-material-diff" class="text-xs font-mono font-bold text-emerald-400"></span>
+            </div>
+          </div>
+        </div>
+        <div id="top-turn-indicator" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0">
+          대기 중
+        </div>
+      </div>
+
+      <!-- 모바일 가로형 형세 판단 바 -->
+      <div class="w-full lg:hidden mb-2 flex items-center gap-2 px-1">
+        <span class="text-[11px] font-semibold text-slate-400 shrink-0">형세</span>
+        <div class="flex-1 h-4 rounded-full bg-slate-800 overflow-hidden border border-slate-700 relative flex">
+          <div id="eval-bar-mobile-white" class="h-full bg-slate-100 transition-all duration-500 ease-out" style="width: 50%;"></div>
+          <div id="eval-bar-mobile-black" class="h-full bg-slate-900 transition-all duration-500 ease-out" style="width: 50%;"></div>
+          <span id="eval-text-mobile" class="absolute inset-0 flex items-center justify-center text-[10px] font-mono font-extrabold text-emerald-400 drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)]">
+            0.0
+          </span>
+        </div>
+      </div>
+
+      <!-- 체스판 + 데스크톱 세로형 형세 판단 바 -->
+      <div class="w-full flex items-stretch justify-center gap-2.5 sm:gap-3">
+        <!-- 데스크톱 세로형 형세 판단 바 -->
+        <div class="hidden lg:flex flex-col items-center justify-between w-8 rounded-xl bg-slate-900 border border-slate-700/80 overflow-hidden relative shadow-inner select-none" title="실시간 스톡피시 형세 판단 바">
+          <div id="eval-bar-top-fill" class="w-full bg-slate-900 transition-all duration-500 ease-out" style="height: 50%;"></div>
+          <div id="eval-bar-bottom-fill" class="w-full bg-slate-100 transition-all duration-500 ease-out" style="height: 50%;"></div>
+          <!-- 중앙 균형선 -->
+          <div class="absolute inset-x-0 top-1/2 h-[1.5px] bg-emerald-500/60 z-10"></div>
+          <!-- 수치 배지 -->
+          <span id="eval-text-desktop" class="absolute top-2 inset-x-0 text-center text-[10px] font-mono font-extrabold text-slate-200 z-20 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+            0.0
+          </span>
+        </div>
+
+        <!-- 8x8 체스판 래퍼 -->
+        <div id="board-wrapper" class="relative w-full aspect-square max-w-[min(92vw,540px)] lg:w-[min(64vh,540px)] lg:h-[min(64vh,540px)] rounded-2xl overflow-hidden shadow-2xl shadow-black/70 ring-4 ring-slate-800/90 bg-slate-800">
+          <div id="chessboard" class="w-full h-full grid grid-cols-8 grid-rows-8"></div>
+        </div>
+      </div>
+
+      <!-- 하단 플레이어(사용자) 바 -->
+      <div class="w-full flex items-center justify-between px-2 py-2 mt-1.5 rounded-xl bg-slate-900/90 border border-slate-800/90">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div id="bottom-avatar" class="w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center text-sm font-bold shrink-0">
+            👤
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span id="bottom-player-name" class="text-sm font-bold text-white truncate">나 (백 · 선공)</span>
+            </div>
+            <div class="flex items-center gap-1.5 h-5 mt-0.5">
+              <div id="bottom-captured" class="flex items-center -space-x-1"></div>
+              <span id="bottom-material-diff" class="text-xs font-mono font-bold text-emerald-400"></span>
+            </div>
+          </div>
+        </div>
+        <div id="bottom-turn-indicator" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+          내 차례
+        </div>
+      </div>
+
+      <!-- 보드 하단 주요 액션 컨트롤 바 -->
+      <div class="w-full grid grid-cols-4 gap-2 mt-2.5">
+        <button id="btn-undo" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 border border-slate-700/80 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+          <span>무르기</span>
+        </button>
+
+        <button id="btn-hint" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 border border-slate-700/80 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          <span>힌트</span>
+        </button>
+
+        <button id="btn-flip" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-slate-700 active:scale-95 border border-slate-700/80 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+          </svg>
+          <span>보드 회전</span>
+        </button>
+
+        <button id="btn-resign" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-rose-950/70 hover:border-rose-800/70 disabled:opacity-40 disabled:pointer-events-none active:scale-95 border border-slate-700/80 text-slate-200 hover:text-rose-300 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+          <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+          </svg>
+          <span>기권</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 우측: 난이도 설정, 상태 안내, 기보 패널 -->
+    <aside class="w-full max-w-[600px] lg:w-96 flex flex-col gap-3.5">
+
+      <!-- 빠른 대국 설정 카드 -->
+      <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            AI 난이도 및 진영 설정
+          </h2>
+          <span id="difficulty-elo-badge" class="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            Elo ~1600
+          </span>
+        </div>
+
+        <!-- 8단계 난이도 선택 -->
+        <div class="mb-3">
+          <label for="difficulty-select" class="block text-xs text-slate-400 mb-1.5">인공지능 수준 (8단계)</label>
+          <select id="difficulty-select" class="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition cursor-pointer">
+            <option value="1">Lv.1 입문 (Skill 0 · 체스 첫걸음)</option>
+            <option value="2">Lv.2 초급 (Skill 3 · 기본 전술)</option>
+            <option value="3">Lv.3 중하급 (Skill 6 · 클럽 입문자)</option>
+            <option value="4" selected>Lv.4 중급 (Skill 9 · 균형 잡힌 대국)</option>
+            <option value="5">Lv.5 중상급 (Skill 12 · 숙련자 수준)</option>
+            <option value="6">Lv.6 상급 (Skill 15 · 토너먼트 강자)</option>
+            <option value="7">Lv.7 전문가 (Skill 18 · 마스터 도전)</option>
+            <option value="8">Lv.8 마스터 (Skill 20 · 스톡피시 최대)</option>
+          </select>
+        </div>
+
+        <!-- 진영 선택 버튼 그룹 + 즉시 시작 -->
+        <div class="grid grid-cols-3 gap-1.5 mb-3">
+          <button type="button" data-side-choice="w" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-emerald-600/25 border-emerald-500 text-emerald-200">
+            ♔ 백 (선공)
+          </button>
+          <button type="button" data-side-choice="b" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750">
+            ♚ 흑 (후공)
+          </button>
+          <button type="button" data-side-choice="random" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750">
+            🎲 랜덤
+          </button>
+        </div>
+
+        <button id="btn-start-with-settings" type="button" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.99] text-white text-sm font-bold shadow-lg shadow-emerald-950/50 transition">
+          선택한 설정으로 새 대국 시작
+        </button>
+      </div>
+
+      <!-- 실시간 안내 & 힌트 알림 배너 -->
+      <div id="status-banner" class="px-4 py-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <span id="status-icon" class="text-lg">♟️</span>
+          <div>
+            <p id="status-main-text" class="text-sm font-bold text-slate-100">대국 진행 중 — 백의 차례입니다</p>
+            <p id="status-sub-text" class="text-xs text-slate-400">기물을 클릭하거나 드래그하여 이동하세요.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 기보 (Move History) 패널 -->
+      <div class="flex-1 min-h-[220px] max-h-[340px] lg:max-h-none p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-800">
+          <h2 class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            대국 기보 (PGN)
+          </h2>
+          <div class="flex items-center gap-2">
+            <span id="move-count-badge" class="text-xs font-mono text-slate-400">0수</span>
+            <button id="btn-copy-pgn" type="button" title="PGN 기보 복사" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-300 border border-slate-700 transition">
+              복사
+            </button>
+          </div>
+        </div>
+
+        <!-- 기보 스크롤 영역 -->
+        <div id="move-history-container" class="flex-1 overflow-y-auto custom-scroll pr-1">
+          <div id="move-history-empty" class="h-full flex flex-col items-center justify-center text-center py-8 text-slate-500 text-xs">
+            <p class="font-medium text-slate-400 mb-1">아직 착수된 기보가 없습니다</p>
+            <p>첫 수를 두면 여기에 표준 대수 기보가 기록됩니다.</p>
+          </div>
+          <div id="move-history-list" class="space-y-1 font-mono text-xs hidden"></div>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- 드래그 중인 기물 고스트 요소 -->
+  <div id="drag-ghost"></div>
+
+  <!-- 폰 프로모션(승진) 선택 모달 -->
+  <div id="promotion-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 p-5 shadow-2xl text-center">
+      <h3 class="text-base font-extrabold text-white mb-1">폰 프로모션 (승진)</h3>
+      <p class="text-xs text-slate-400 mb-4">승진할 기물을 선택하세요</p>
+      <div id="promotion-choices" class="grid grid-cols-4 gap-2.5"></div>
+    </div>
+  </div>
+
+  <!-- 대국 종료 결과 모달 -->
+  <div id="gameover-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-700/90 p-6 shadow-2xl text-center">
+      <div id="gameover-icon" class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-3xl">
+        🏆
+      </div>
+      <h3 id="gameover-title" class="text-xl font-extrabold text-white mb-1.5">체크메이트!</h3>
+      <p id="gameover-desc" class="text-sm text-slate-300 mb-5">백이 승리했습니다.</p>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <button id="btn-modal-close" type="button" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold border border-slate-700 transition">
+          기보 확인하기
+        </button>
+        <button id="btn-modal-rematch" type="button" class="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-950/60 transition">
+          다시 대국하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 메시지 박스 (alert 대신 사용) -->
+  <div id="toast-box" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 translate-y-2">
+    <div id="toast-message" class="px-4 py-2.5 rounded-full bg-slate-800/95 text-white text-xs sm:text-sm font-semibold border border-slate-600/80 shadow-xl backdrop-blur-md">
+      알림 메시지
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * 1. 고해상도 인라인 SVG 체스 기물 세트 (Cburnett/Staunton 토너먼트 표준 벡터)
+     * ============================================================================
+     */
+    const PIECE_SVGS = {
+      wP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#fff" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+      wR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fff" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none" stroke-linejoin="miter"/></g></svg>`,
+      wN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#fff"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#fff"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="#1e293b"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="#1e293b"/></g></svg>`,
+      wB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g fill="#fff" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke-linejoin="miter"/></g></svg>`,
+      wQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fff" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM24.5 7.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM33 9a2 2 0 1 1-4 0 2 2 0 1 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11.5 30c3.5-1 18.5-1 22 0M12 33.5c6-1 15-1 21 0" fill="none"/></g></svg>`,
+      wK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#fff" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#fff"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>`,
+      bP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#1e293b" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+      bR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#1e293b" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12.5 32l1.5-2.5h17l1.5 2.5h-20zM12 36v-4h21v4H12z" stroke-linecap="butt"/><path d="M14 29.5v-13h17v13H14z" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M14 16.5L11 14h23l-3 2.5H14zM11 14V9h4v2h5V9h5v2h5V9h4v5H11z" stroke-linecap="butt"/><path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 16.5h17M11 14h23" fill="none" stroke="#cbd5e1" stroke-width="1.1" stroke-linejoin="miter"/></g></svg>`,
+      bN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#1e293b"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#1e293b"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="#e2e8f0" stroke="#e2e8f0"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="#e2e8f0" stroke="#e2e8f0"/><path d="M 24.55,10.4 L 24.1,11.85 L 24.6,12 C 27.75,13 30.25,14.49 32.5,18.75 C 34.75,23.01 35.75,29.06 35.25,39 L 35.2,39.5 L 37.45,39.5 L 37.5,39 C 38,28.94 36.62,22.15 34.25,17.66 C 31.88,13.17 28.46,11.02 25.06,10.5 L 24.55,10.4 z" fill="#cbd5e1" stroke="none"/></g></svg>`,
+      bB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g fill="#1e293b" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke="#cbd5e1" stroke-linejoin="miter"/></g></svg>`,
+      bQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#1e293b" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g fill="#1e293b" stroke="none"><circle cx="6" cy="12" r="2.75"/><circle cx="14" cy="9" r="2.75"/><circle cx="22.5" cy="8" r="2.75"/><circle cx="31" cy="9" r="2.75"/><circle cx="39" cy="12" r="2.75"/></g><path d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5 9 26z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11 38.5a35 35 1 0 0 23 0" fill="none" stroke-linecap="butt"/><path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0M10.5 37.5a35 35 1 0 0 24 0" fill="none" stroke="#cbd5e1" stroke-width="1.1"/></g></svg>`,
+      bK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#1e293b" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#1e293b"/><path d="M20 8h5" stroke-linejoin="miter"/><path d="M32 29.5s8.5-4 6.03-9.65C34.15 14 25 18 22.5 24.5l.01 2.1-.01-2.1C20 18 9.906 14 6.997 19.85c-2.497 5.65 4.853 9 4.853 9M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke="#cbd5e1" stroke-width="1.1"/></g></svg>`,
+    };
+
+    /**
+     * ============================================================================
+     * 2. Web Audio API 합성 사운드 효과 (외부 오디오 파일 불필요)
+     * ============================================================================
+     */
+    class SoundFX {
+      constructor() {
+        this.enabled = true;
+        this.ctx = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      play(type) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          if (type === 'move') {
+            // 묵직한 나무 기물 착수음
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(175, now);
+            osc.frequency.exponentialRampToValueAtTime(75, now + 0.08);
+            gain.gain.setValueAtTime(0.28, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+            osc.start(now);
+            osc.stop(now + 0.09);
+          } else if (type === 'capture') {
+            // 경쾌한 잡기 타격음
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(280, now);
+            osc.frequency.exponentialRampToValueAtTime(85, now + 0.12);
+            gain.gain.setValueAtTime(0.32, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+            osc.start(now);
+            osc.stop(now + 0.13);
+          } else if (type === 'castle') {
+            // 캐슬링 이중 착수음
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(190, now);
+            osc.frequency.setValueAtTime(230, now + 0.07);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+            osc.start(now);
+            osc.stop(now + 0.16);
+          } else if (type === 'check') {
+            // 체크 경고음
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, now);
+            osc.frequency.setValueAtTime(880, now + 0.09);
+            gain.gain.setValueAtTime(0.28, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc.start(now);
+            osc.stop(now + 0.25);
+          } else if (type === 'gameover') {
+            // 대국 종료 화음
+            const notes = [523.25, 659.25, 783.99, 1046.5];
+            notes.forEach((freq, idx) => {
+              const o = this.ctx.createOscillator();
+              const g = this.ctx.createGain();
+              o.type = 'triangle';
+              o.frequency.setValueAtTime(freq, now + idx * 0.08);
+              g.gain.setValueAtTime(0.2, now + idx * 0.08);
+              g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
+              o.connect(g);
+              g.connect(this.ctx.destination);
+              o.start(now + idx * 0.08);
+              o.stop(now + idx * 0.08 + 0.46);
+            });
+          }
+        } catch (e) {
+          // 오디오 권한 제한 무시
+        }
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 3. 내장 Alpha-Beta 가지치기 + Piece-Square Tables 폴백 엔진
+     *    (오프라인이나 샌드박스 환경에서 외부 Worker가 차단되어도 즉시 작동)
+     * ============================================================================
+     */
+    const FallbackEngine = (() => {
+      const PIECE_VAL = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+
+      const PST = {
+        p: [
+           0,  0,  0,  0,  0,  0,  0,  0,
+          50, 50, 50, 50, 50, 50, 50, 50,
+          10, 10, 20, 30, 30, 20, 10, 10,
+           5,  5, 10, 25, 25, 10,  5,  5,
+           0,  0,  0, 20, 20,  0,  0,  0,
+           5, -5,-10,  0,  0,-10, -5,  5,
+           5, 10, 10,-20,-20, 10, 10,  5,
+           0,  0,  0,  0,  0,  0,  0,  0
+        ],
+        n: [
+          -50,-40,-30,-30,-30,-30,-40,-50,
+          -40,-20,  0,  0,  0,  0,-20,-40,
+          -30,  0, 10, 15, 15, 10,  0,-30,
+          -30,  5, 15, 20, 20, 15,  5,-30,
+          -30,  0, 15, 20, 20, 15,  0,-30,
+          -30,  5, 10, 15, 15, 10,  5,-30,
+          -40,-20,  0,  5,  5,  0,-20,-40,
+          -50,-40,-30,-30,-30,-30,-40,-50
+        ],
+        b: [
+          -20,-10,-10,-10,-10,-10,-10,-20,
+          -10,  0,  0,  0,  0,  0,  0,-10,
+          -10,  0,  5, 10, 10,  5,  0,-10,
+          -10,  5,  5, 10, 10,  5,  5,-10,
+          -10,  0, 10, 10, 10, 10,  0,-10,
+          -10, 10, 10, 10, 10, 10, 10,-10,
+          -10,  5,  0,  0,  0,  0,  5,-10,
+          -20,-10,-10,-10,-10,-10,-10,-20
+        ],
+        r: [
+            0,  0,  0,  0,  0,  0,  0,  0,
+            5, 10, 10, 10, 10, 10, 10,  5,
+           -5,  0,  0,  0,  0,  0,  0, -5,
+           -5,  0,  0,  0,  0,  0,  0, -5,
+           -5,  0,  0,  0,  0,  0,  0, -5,
+           -5,  0,  0,  0,  0,  0,  0, -5,
+           -5,  0,  0,  0,  0,  0,  0, -5,
+            0,  0,  0,  5,  5,  0,  0,  0
+        ],
+        q: [
+          -20,-10,-10, -5, -5,-10,-10,-20,
+          -10,  0,  0,  0,  0,  0,  0,-10,
+          -10,  0,  5,  5,  5,  5,  0,-10,
+           -5,  0,  5,  5,  5,  5,  0, -5,
+            0,  0,  5,  5,  5,  5,  0, -5,
+          -10,  5,  5,  5,  5,  5,  0,-10,
+          -10,  0,  5,  0,  0,  0,  0,-10,
+          -20,-10,-10, -5, -5,-10,-10,-20
+        ],
+        k: [
+          -30,-40,-40,-50,-50,-40,-40,-30,
+          -30,-40,-40,-50,-50,-40,-40,-30,
+          -30,-40,-40,-50,-50,-40,-40,-30,
+          -30,-40,-40,-50,-50,-40,-40,-30,
+          -20,-30,-30,-40,-40,-30,-30,-20,
+          -10,-20,-20,-20,-20,-20,-20,-10,
+           20, 20,  0,  0,  0,  0, 20, 20,
+           20, 30, 10,  0,  0, 10, 30, 20
+        ]
+      };
+
+      function evaluateBoard(game) {
+        if (game.in_checkmate()) {
+          return game.turn() === 'w' ? -99999 : 99999;
+        }
+        if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
+          return 0;
+        }
+
+        const board = game.board();
+        let total = 0;
+
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const p = board[r][c];
+            if (!p) continue;
+            const idx = p.color === 'w' ? r * 8 + c : (7 - r) * 8 + c;
+            const score = PIECE_VAL[p.type] + (PST[p.type] ? PST[p.type][idx] : 0);
+            total += p.color === 'w' ? score : -score;
+          }
+        }
+        return total;
+      }
+
+      function orderMoves(moves) {
+        return moves.sort((a, b) => {
+          let scoreA = 0;
+          let scoreB = 0;
+          if (a.captured) scoreA += 10 * PIECE_VAL[a.captured] - PIECE_VAL[a.piece];
+          if (b.captured) scoreB += 10 * PIECE_VAL[b.captured] - PIECE_VAL[b.piece];
+          if (a.promotion) scoreA += 800;
+          if (b.promotion) scoreB += 800;
+          return scoreB - scoreA;
+        });
+      }
+
+      function minimax(game, depth, alpha, beta, isMaximizing) {
+        if (depth === 0 || game.game_over()) {
+          return evaluateBoard(game);
+        }
+
+        const moves = orderMoves(game.moves({ verbose: true }));
+        if (isMaximizing) {
+          let maxEval = -Infinity;
+          for (let i = 0; i < moves.length; i++) {
+            game.move(moves[i]);
+            const ev = minimax(game, depth - 1, alpha, beta, false);
+            game.undo();
+            if (ev > maxEval) maxEval = ev;
+            if (ev > alpha) alpha = ev;
+            if (beta <= alpha) break;
+          }
+          return maxEval;
+        } else {
+          let minEval = Infinity;
+          for (let i = 0; i < moves.length; i++) {
+            game.move(moves[i]);
+            const ev = minimax(game, depth - 1, alpha, beta, true);
+            game.undo();
+            if (ev < minEval) minEval = ev;
+            if (ev < beta) beta = ev;
+            if (beta <= alpha) break;
+          }
+          return minEval;
+        }
+      }
+
+      function findBestMove(fen, level) {
+        const tempGame = new Chess(fen);
+        const moves = orderMoves(tempGame.moves({ verbose: true }));
+        if (moves.length === 0) return null;
+
+        // 난이도에 따른 탐색 깊이 및 무작위성 조절
+        const depth = level <= 2 ? 1 : level <= 5 ? 2 : 3;
+        const randomness = Math.max(0, (8 - level) * 28);
+        const isMaximizing = tempGame.turn() === 'w';
+
+        let bestMove = moves[0];
+        let bestValue = isMaximizing ? -Infinity : Infinity;
+
+        for (let i = 0; i < moves.length; i++) {
+          tempGame.move(moves[i]);
+          let boardVal = minimax(tempGame, depth - 1, -Infinity, Infinity, !isMaximizing);
+          tempGame.undo();
+
+          // 낮은 난이도에서는 미세한 노이즈 추가
+          if (randomness > 0) {
+            boardVal += (Math.random() - 0.5) * randomness;
+          }
+
+          if (isMaximizing) {
+            if (boardVal > bestValue) {
+              bestValue = boardVal;
+              bestMove = moves[i];
+            }
+          } else {
+            if (boardVal < bestValue) {
+              bestValue = boardVal;
+              bestMove = moves[i];
+            }
+          }
+        }
+
+        const evalCp = evaluateBoard(tempGame);
+        return {
+          uci: bestMove.from + bestMove.to + (bestMove.promotion || ''),
+          cp: evalCp
+        };
+      }
+
+      return { findBestMove, evaluateBoard };
+    })();
+
+    /**
+     * ============================================================================
+     * 4. Stockfish UCI Web Worker 브리지 (자동 폴백 내장)
+     * ============================================================================
+     */
+    class StockfishManager {
+      constructor({ onReady, onFallback, onEval, onBestMove }) {
+        this.onReady = onReady;
+        this.onFallback = onFallback;
+        this.onEval = onEval;
+        this.onBestMove = onBestMove;
+
+        this.worker = null;
+        this.isReady = false;
+        this.useFallback = false;
+        this.currentTurn = 'w';
+        this.pendingPurpose = null; // 'ai' | 'hint'
+        this.fallbackTimer = null;
+
+        this.initWorker();
+      }
+
+      initWorker() {
+        try {
+          const stockfishUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
+          const blob = new Blob([`importScripts('${stockfishUrl}');`], { type: 'application/javascript' });
+          const workerUrl = URL.createObjectURL(blob);
+          this.worker = new Worker(workerUrl);
+
+          // 4.5초 이내에 uciok/readyok 응답이 없으면 자동으로 내장 엔진 전환
+          this.fallbackTimer = setTimeout(() => {
+            if (!this.isReady) {
+              this.activateFallback('응답 시간 초과');
+            }
+          }, 4500);
+
+          this.worker.onmessage = (e) => {
+            const line = typeof e.data === 'string' ? e.data : '';
+            this.handleMessage(line);
+          };
+
+          this.worker.onerror = () => {
+            this.activateFallback('Worker 로드 차단');
+          };
+
+          this.send('uci');
+        } catch (err) {
+          this.activateFallback('Worker 생성 예외');
+        }
+      }
+
+      activateFallback(reason) {
+        if (this.useFallback) return;
+        clearTimeout(this.fallbackTimer);
+        this.useFallback = true;
+        this.isReady = true;
+        if (this.worker) {
+          try { this.worker.terminate(); } catch (_) {}
+          this.worker = null;
+        }
+        if (this.onFallback) this.onFallback(reason);
+      }
+
+      send(cmd) {
+        if (this.worker && !this.useFallback) {
+          this.worker.postMessage(cmd);
+        }
+      }
+
+      handleMessage(line) {
+        if (line === 'uciok') {
+          this.send('isready');
+        } else if (line === 'readyok') {
+          if (!this.isReady) {
+            clearTimeout(this.fallbackTimer);
+            this.isReady = true;
+            if (this.onReady) this.onReady();
+          }
+        } else if (line.startsWith('info ') && line.includes(' score ')) {
+          // 실시간 형세 점수 파싱 (Stockfish는 현재 차례 기준 점수를 출력하므로 백 기준으로 정규화)
+          const cpMatch = line.match(/score cp (-?\d+)/);
+          const mateMatch = line.match(/score mate (-?\d+)/);
+          const sign = this.currentTurn === 'w' ? 1 : -1;
+
+          if (mateMatch) {
+            const mateVal = parseInt(mateMatch[1], 10) * sign;
+            if (this.onEval) this.onEval({ type: 'mate', value: mateVal });
+          } else if (cpMatch) {
+            const cpVal = parseInt(cpMatch[1], 10) * sign;
+            if (this.onEval) this.onEval({ type: 'cp', value: cpVal });
+          }
+        } else if (line.startsWith('bestmove ')) {
+          const parts = line.split(' ');
+          const moveStr = parts[1];
+          if (moveStr && moveStr !== '(none)' && this.onBestMove) {
+            this.onBestMove(moveStr, this.pendingPurpose);
+          }
+        }
+      }
+
+      search({ fen, turn, skillLevel, depth, movetime, levelNum, purpose }) {
+        this.currentTurn = turn;
+        this.pendingPurpose = purpose;
+
+        if (this.useFallback) {
+          setTimeout(() => {
+            const res = FallbackEngine.findBestMove(fen, levelNum);
+            if (res) {
+              if (this.onEval) this.onEval({ type: 'cp', value: res.cp });
+              if (this.onBestMove) this.onBestMove(res.uci, purpose);
+            }
+          }, 220);
+          return;
+        }
+
+        this.send('stop');
+        this.send(`setoption name Skill Level value ${skillLevel}`);
+        this.send(`position fen ${fen}`);
+        this.send(`go depth ${depth} movetime ${movetime}`);
+      }
+
+      stop() {
+        if (!this.useFallback && this.worker) {
+          this.send('stop');
+        }
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 5. 메인 체스 게임 컨트롤러 & UI 바인딩
+     * ============================================================================
+     */
+    const DIFFICULTY_CONFIG = {
+      1: { name: 'Lv.1 입문', elo: 'Elo ~800',  skill: 0,  depth: 1,  movetime: 150 },
+      2: { name: 'Lv.2 초급', elo: 'Elo ~1100', skill: 3,  depth: 3,  movetime: 250 },
+      3: { name: 'Lv.3 중하급', elo: 'Elo ~1350', skill: 6,  depth: 5,  movetime: 400 },
+      4: { name: 'Lv.4 중급', elo: 'Elo ~1600', skill: 9,  depth: 7,  movetime: 600 },
+      5: { name: 'Lv.5 중상급', elo: 'Elo ~1850', skill: 12, depth: 9,  movetime: 800 },
+      6: { name: 'Lv.6 상급', elo: 'Elo ~2100', skill: 15, depth: 11, movetime: 1000 },
+      7: { name: 'Lv.7 전문가', elo: 'Elo ~2400', skill: 18, depth: 13, movetime: 1300 },
+      8: { name: 'Lv.8 마스터', elo: 'Elo ~3000+', skill: 20, depth: 15, movetime: 1600 },
+    };
+
+    const THEMES = [
+      { id: 'emerald', label: '그린 테마' },
+      { id: 'wood',    label: '우드 테마' },
+      { id: 'slate',   label: '블루 테마' },
+    ];
+
+    const state = {
+      game: new Chess(),
+      playerColor: 'w',      // 'w' 또는 'b'
+      selectedSideChoice: 'w', // 'w' | 'b' | 'random'
+      flipped: false,
+      difficulty: 4,
+      selectedSquare: null,
+      legalDestinations: [], // [{ to, captured, promotion }]
+      lastMove: null,        // { from, to }
+      hintMove: null,        // { from, to }
+      pendingPromotion: null,// { from, to }
+      isAiThinking: false,
+      themeIndex: 0,
+      evalWhiteCp: 0,        // 백 기준 센티폰 점수
+      evalMate: null,        // 백 기준 메이트 수 (예: 3 또는 -2)
+      dragState: null,       // { from, startX, startY, isDragging }
+    };
+
+    const sound = new SoundFX();
+
+    // DOM 참조
+    const boardEl = document.getElementById('chessboard');
+    const dragGhostEl = document.getElementById('drag-ghost');
+
+    // 엔진 초기화
+    const engine = new StockfishManager({
+      onReady: () => {
+        const badge = document.getElementById('engine-badge');
+        const dot = document.getElementById('engine-dot');
+        const text = document.getElementById('engine-status-text');
+        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+        text.textContent = 'Stockfish 10 엔진 활성';
+        maybeTriggerAiTurn();
+      },
+      onFallback: () => {
+        const badge = document.getElementById('engine-badge');
+        const dot = document.getElementById('engine-dot');
+        const text = document.getElementById('engine-status-text');
+        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-sky-400';
+        text.textContent = '내장 Alpha-Beta AI 활성';
+        maybeTriggerAiTurn();
+      },
+      onEval: (evalData) => {
+        if (evalData.type === 'mate') {
+          state.evalMate = evalData.value;
+        } else {
+          state.evalMate = null;
+          state.evalWhiteCp = evalData.value;
+        }
+        updateEvalBar();
+      },
+      onBestMove: (uciMove, purpose) => {
+        if (purpose === 'ai') {
+          state.isAiThinking = false;
+          document.getElementById('ai-thinking-pill').classList.add('hidden');
+          executeUciMove(uciMove);
+        } else if (purpose === 'hint') {
+          const from = uciMove.slice(0, 2);
+          const to = uciMove.slice(2, 4);
+          state.hintMove = { from, to };
+          renderBoard();
+          showToast(`💡 추천 수: ${from} → ${to}`);
+        }
+      },
+    });
+
+    /**
+     * 토스트 알림 표시
+     */
+    let toastTimeout = null;
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      const text = document.getElementById('toast-message');
+      text.textContent = msg;
+      box.classList.remove('opacity-0', 'translate-y-2');
+      box.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        box.classList.remove('opacity-100', 'translate-y-0');
+        box.classList.add('opacity-0', 'translate-y-2');
+      }, 2600);
+    }
+
+    /**
+     * 형세 판단 바 업데이트
+     */
+    function updateEvalBar() {
+      let whitePercent = 50;
+      let displayText = '0.0';
+
+      if (state.evalMate !== null && state.evalMate !== 0) {
+        whitePercent = state.evalMate > 0 ? 96 : 4;
+        displayText = (state.evalMate > 0 ? 'M' : '-M') + Math.abs(state.evalMate);
+      } else {
+        // 시그모이드 곡선으로 센티폰을 5% ~ 95% 시각적 비율로 변환
+        const clamped = Math.max(-1000, Math.min(1000, state.evalWhiteCp));
+        whitePercent = 50 + 45 * (2 / (1 + Math.exp(-0.004 * clamped)) - 1);
+        const pawns = (state.evalWhiteCp / 100).toFixed(1);
+        displayText = state.evalWhiteCp > 0 ? `+${pawns}` : `${pawns}`;
+      }
+
+      // 모바일 가로 바 (왼쪽 백, 오른쪽 흑)
+      document.getElementById('eval-bar-mobile-white').style.width = `${whitePercent}%`;
+      document.getElementById('eval-bar-mobile-black').style.width = `${100 - whitePercent}%`;
+      document.getElementById('eval-text-mobile').textContent = displayText;
+
+      // 데스크톱 세로 바 (보드 방향에 따라 상/하단 비율 조정)
+      const topFill = document.getElementById('eval-bar-top-fill');
+      const bottomFill = document.getElementById('eval-bar-bottom-fill');
+      const desktopText = document.getElementById('eval-text-desktop');
+
+      if (!state.flipped) {
+        // 아래가 백(흰색), 위가 흑(검정)
+        topFill.className = 'w-full bg-slate-900 transition-all duration-500 ease-out';
+        bottomFill.className = 'w-full bg-slate-100 transition-all duration-500 ease-out';
+        topFill.style.height = `${100 - whitePercent}%`;
+        bottomFill.style.height = `${whitePercent}%`;
+      } else {
+        // 보드 회전 시 위가 백(흰색), 아래가 흑(검정)
+        topFill.className = 'w-full bg-slate-100 transition-all duration-500 ease-out';
+        bottomFill.className = 'w-full bg-slate-900 transition-all duration-500 ease-out';
+        topFill.style.height = `${whitePercent}%`;
+        bottomFill.style.height = `${100 - whitePercent}%`;
+      }
+      desktopText.textContent = displayText;
+    }
+
+    /**
+     * 8x8 체스판 렌더링
+     */
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      const boardData = state.game.board();
+      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+      const inCheck = state.game.in_check();
+      const turn = state.game.turn();
+
+      // 체크 상태인 킹 위치 찾기
+      let checkedKingSquare = null;
+      if (inCheck) {
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const p = boardData[r][c];
+            if (p && p.type === 'k' && p.color === turn) {
+              checkedKingSquare = files[c] + (8 - r);
+            }
+          }
+        }
+      }
+
+      for (let visualRow = 0; visualRow < 8; visualRow++) {
+        for (let visualCol = 0; visualCol < 8; visualCol++) {
+          const r = state.flipped ? 7 - visualRow : visualRow;
+          const c = state.flipped ? 7 - visualCol : visualCol;
+
+          const squareName = files[c] + (8 - r);
+          const isLight = (r + c) % 2 === 0;
+          const piece = boardData[r][c];
+
+          const cell = document.createElement('div');
+          cell.dataset.square = squareName;
+          cell.className = `square-cell relative flex items-center justify-center cursor-pointer select-none ${
+            isLight ? 'sq-light' : 'sq-dark'
+          }`;
+
+          // 선택된 칸, 직전 수, 힌트 수, 체크 하이라이트
+          if (state.selectedSquare === squareName) {
+            cell.classList.add('sq-selected');
+          }
+          if (state.lastMove) {
+            if (state.lastMove.from === squareName) cell.classList.add('sq-last-from');
+            if (state.lastMove.to === squareName) cell.classList.add('sq-last-to');
+          }
+          if (state.hintMove) {
+            if (state.hintMove.from === squareName) cell.classList.add('sq-hint-from');
+            if (state.hintMove.to === squareName) cell.classList.add('sq-hint-to');
+          }
+          if (checkedKingSquare === squareName) {
+            cell.classList.add('sq-check');
+          }
+
+          // 좌측 열 랭크 숫자(1~8) 표시
+          if (visualCol === 0) {
+            const rankLabel = document.createElement('span');
+            rankLabel.textContent = 8 - r;
+            rankLabel.className = `absolute top-0.5 left-1 text-[10px] sm:text-[11px] font-mono font-bold leading-none pointer-events-none ${
+              isLight ? 'coord-on-light' : 'coord-on-dark'
+            }`;
+            cell.appendChild(rankLabel);
+          }
+
+          // 하단 행 파일 문자(a~h) 표시
+          if (visualRow === 7) {
+            const fileLabel = document.createElement('span');
+            fileLabel.textContent = files[c];
+            fileLabel.className = `absolute bottom-0.5 right-1 text-[10px] sm:text-[11px] font-mono font-bold leading-none pointer-events-none ${
+              isLight ? 'coord-on-light' : 'coord-on-dark'
+            }`;
+            cell.appendChild(fileLabel);
+          }
+
+          // 기물 SVG 삽입
+          if (piece) {
+            const key = piece.color + piece.type.toUpperCase();
+            const pieceWrapper = document.createElement('div');
+            pieceWrapper.className = 'w-full h-full flex items-center justify-center piece-container';
+            pieceWrapper.innerHTML = PIECE_SVGS[key];
+            cell.appendChild(pieceWrapper);
+          }
+
+          // 합법 이동 목적지 표시
+          const destMove = state.legalDestinations.find((m) => m.to === squareName);
+          if (destMove) {
+            if (destMove.captured || destMove.flags.includes('e')) {
+              const ring = document.createElement('div');
+              ring.className = 'capture-ring';
+              cell.appendChild(ring);
+            } else {
+              const dot = document.createElement('div');
+              dot.className = 'move-dot';
+              cell.appendChild(dot);
+            }
+          }
+
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    /**
+     * 칸 선택 및 이동 처리
+     */
+    function handleSquareInteraction(square) {
+      if (state.game.game_over() || state.isAiThinking) return;
+      if (state.game.turn() !== state.playerColor) return;
+
+      // 이미 선택된 기물의 합법 이동 칸을 클릭한 경우 -> 이동 실행
+      const targetMoves = state.legalDestinations.filter((m) => m.to === square);
+      if (targetMoves.length > 0) {
+        // 폰 프로모션 여부 확인
+        const isPromotion = targetMoves.some((m) => m.promotion);
+        if (isPromotion) {
+          openPromotionModal(state.selectedSquare, square);
+          return;
+        }
+        executePlayerMove({ from: state.selectedSquare, to: square });
+        return;
+      }
+
+      // 내 기물을 클릭한 경우 -> 선택 토글 및 합법 수 계산
+      const piece = state.game.get(square);
+      if (piece && piece.color === state.playerColor) {
+        if (state.selectedSquare === square) {
+          state.selectedSquare = null;
+          state.legalDestinations = [];
+        } else {
+          state.selectedSquare = square;
+          state.legalDestinations = state.game.moves({ square, verbose: true });
+        }
+        renderBoard();
+        return;
+      }
+
+      // 빈 칸이나 상대 기물(잡을 수 없는) 클릭 시 선택 해제
+      state.selectedSquare = null;
+      state.legalDestinations = [];
+      renderBoard();
+    }
+
+    /**
+     * 폰 프로모션 모달 열기
+     */
+    function openPromotionModal(from, to) {
+      state.pendingPromotion = { from, to };
+      const choicesEl = document.getElementById('promotion-choices');
+      choicesEl.innerHTML = '';
+      const colorPrefix = state.playerColor;
+      const options = [
+        { type: 'q', label: '퀸' },
+        { type: 'r', label: '룩' },
+        { type: 'b', label: '비숍' },
+        { type: 'n', label: '나이트' },
+      ];
+
+      options.forEach((opt) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'p-2.5 rounded-xl bg-slate-800 hover:bg-emerald-600/30 border border-slate-700 hover:border-emerald-400 flex flex-col items-center gap-1 transition active:scale-95';
+        btn.innerHTML = `
+          <div class="w-11 h-11 flex items-center justify-center">${PIECE_SVGS[colorPrefix + opt.type.toUpperCase()]}</div>
+          <span class="text-xs font-bold text-slate-200">${opt.label}</span>
+        `;
+        btn.onclick = () => {
+          closePromotionModal();
+          executePlayerMove({ from, to, promotion: opt.type });
+        };
+        choicesEl.appendChild(btn);
+      });
+
+      const modal = document.getElementById('promotion-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closePromotionModal() {
+      const modal = document.getElementById('promotion-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      state.pendingPromotion = null;
+    }
+
+    /**
+     * 플레이어 착수 실행
+     */
+    function executePlayerMove(moveObj) {
+      const moveResult = state.game.move(moveObj);
+      if (!moveResult) return;
+
+      state.selectedSquare = null;
+      state.legalDestinations = [];
+      state.hintMove = null;
+      state.lastMove = { from: moveResult.from, to: moveResult.to };
+
+      playMoveSound(moveResult);
+      afterMoveUpdates();
+      maybeTriggerAiTurn();
+    }
+
+    /**
+     * AI UCI 수 실행 (예: "e7e5", "e7e8q")
+     */
+    function executeUciMove(uci) {
+      if (!uci || uci.length < 4) return;
+      const from = uci.slice(0, 2);
+      const to = uci.slice(2, 4);
+      const promotion = uci.length > 4 ? uci[4] : undefined;
+
+      const moveResult = state.game.move({ from, to, promotion });
+      if (!moveResult) return;
+
+      state.hintMove = null;
+      state.lastMove = { from: moveResult.from, to: moveResult.to };
+
+      playMoveSound(moveResult);
+      afterMoveUpdates();
+    }
+
+    function playMoveSound(moveResult) {
+      if (state.game.game_over()) {
+        sound.play('gameover');
+      } else if (state.game.in_check()) {
+        sound.play('check');
+      } else if (moveResult.flags.includes('k') || moveResult.flags.includes('q')) {
+        sound.play('castle');
+      } else if (moveResult.captured) {
+        sound.play('capture');
+      } else {
+        sound.play('move');
+      }
+    }
+
+    /**
+     * 착수 후 전체 UI(보드, 기보, 잡은 기물, 상태 배너, 종료 판정) 동기화
+     */
+    function afterMoveUpdates() {
+      renderBoard();
+      updateCapturedAndMaterial();
+      updateMoveHistory();
+      updatePlayerBarsAndStatus();
+
+      if (state.game.game_over()) {
+        showGameOverModal();
+      }
+    }
+
+    /**
+     * AI 차례 트리거
+     */
+    function maybeTriggerAiTurn() {
+      if (state.game.game_over()) return;
+      if (!engine.isReady) return;
+      if (state.game.turn() === state.playerColor) return;
+
+      state.isAiThinking = true;
+      document.getElementById('ai-thinking-pill').classList.remove('hidden');
+      updatePlayerBarsAndStatus();
+
+      const cfg = DIFFICULTY_CONFIG[state.difficulty];
+      engine.search({
+        fen: state.game.fen(),
+        turn: state.game.turn(),
+        skillLevel: cfg.skill,
+        depth: cfg.depth,
+        movetime: cfg.movetime,
+        levelNum: state.difficulty,
+        purpose: 'ai',
+      });
+    }
+
+    /**
+     * 잡은 기물 & 기물 점수 우위 계산
+     */
+    function updateCapturedAndMaterial() {
+      const initialCounts = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+      const currentCounts = {
+        w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+        b: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+      };
+      const values = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+
+      const board = state.game.board();
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const p = board[r][c];
+          if (p && p.type !== 'k') {
+            currentCounts[p.color][p.type]++;
+          }
+        }
+      }
+
+      // 백이 잡은 흑의 기물 / 흑이 잡은 백의 기물
+      const capturedByWhite = [];
+      const capturedByBlack = [];
+      let whiteScore = 0;
+      let blackScore = 0;
+
+      ['q', 'r', 'b', 'n', 'p'].forEach((type) => {
+        whiteScore += currentCounts.w[type] * values[type];
+        blackScore += currentCounts.b[type] * values[type];
+
+        const lostBlack = Math.max(0, initialCounts[type] - currentCounts.b[type]);
+        for (let i = 0; i < lostBlack; i++) capturedByWhite.push('b' + type.toUpperCase());
+
+        const lostWhite = Math.max(0, initialCounts[type] - currentCounts.w[type]);
+        for (let i = 0; i < lostWhite; i++) capturedByBlack.push('w' + type.toUpperCase());
+      });
+
+      const bottomColor = state.flipped ? (state.playerColor === 'w' ? 'b' : 'w') : state.playerColor;
+      const topColor = bottomColor === 'w' ? 'b' : 'w';
+
+      const topCapturedList = topColor === 'w' ? capturedByWhite : capturedByBlack;
+      const bottomCapturedList = bottomColor === 'w' ? capturedByWhite : capturedByBlack;
+
+      const topDiff = topColor === 'w' ? whiteScore - blackScore : blackScore - whiteScore;
+      const bottomDiff = bottomColor === 'w' ? whiteScore - blackScore : blackScore - whiteScore;
+
+      renderMiniPieces('top-captured', topCapturedList);
+      renderMiniPieces('bottom-captured', bottomCapturedList);
+
+      document.getElementById('top-material-diff').textContent = topDiff > 0 ? `+${topDiff}` : '';
+      document.getElementById('bottom-material-diff').textContent = bottomDiff > 0 ? `+${bottomDiff}` : '';
+    }
+
+    function renderMiniPieces(elementId, pieceKeys) {
+      const container = document.getElementById(elementId);
+      container.innerHTML = pieceKeys
+        .map((key) => `<div class="w-4 h-4 inline-flex items-center justify-center">${PIECE_SVGS[key]}</div>`)
+        .join('');
+    }
+
+    /**
+     * 기보 (Move History) 업데이트
+     */
+    function updateMoveHistory() {
+      const history = state.game.history();
+      const emptyEl = document.getElementById('move-history-empty');
+      const listEl = document.getElementById('move-history-list');
+      const countBadge = document.getElementById('move-count-badge');
+
+      countBadge.textContent = `${history.length}수`;
+
+      if (history.length === 0) {
+        emptyEl.classList.remove('hidden');
+        listEl.classList.add('hidden');
+        listEl.innerHTML = '';
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      listEl.classList.remove('hidden');
+      listEl.innerHTML = '';
+
+      for (let i = 0; i < history.length; i += 2) {
+        const turnNum = Math.floor(i / 2) + 1;
+        const whiteMove = history[i];
+        const blackMove = history[i + 1] || '';
+
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-12 items-center px-2.5 py-1.5 rounded-lg odd:bg-slate-800/45 text-xs';
+        row.innerHTML = `
+          <span class="col-span-2 text-slate-500 font-semibold">${turnNum}.</span>
+          <span class="col-span-5 font-bold ${i === history.length - 1 ? 'text-emerald-300' : 'text-slate-100'}">${whiteMove}</span>
+          <span class="col-span-5 font-bold ${i + 1 === history.length - 1 ? 'text-emerald-300' : 'text-slate-300'}">${blackMove}</span>
+        `;
+        listEl.appendChild(row);
+      }
+
+      const scrollContainer = document.getElementById('move-history-container');
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    }
+
+    /**
+     * 상/하단 플레이어 바 & 상태 배너 업데이트
+     */
+    function updatePlayerBarsAndStatus() {
+      const cfg = DIFFICULTY_CONFIG[state.difficulty];
+      const isPlayerWhite = state.playerColor === 'w';
+      const turn = state.game.turn();
+      const isGameOver = state.game.game_over();
+
+      // 상/하단 이름 설정 (보드 회전 반영)
+      const bottomIsPlayer = !state.flipped;
+      const topNameEl = document.getElementById('top-player-name');
+      const bottomNameEl = document.getElementById('bottom-player-name');
+      const topAvatar = document.getElementById('top-avatar');
+      const bottomAvatar = document.getElementById('bottom-avatar');
+
+      const aiLabel = `스톡피시 AI (${cfg.name})`;
+      const playerLabel = `나 (${isPlayerWhite ? '백 · 선공' : '흑 · 후공'})`;
+
+      if (bottomIsPlayer) {
+        topNameEl.textContent = aiLabel;
+        topAvatar.textContent = '🤖';
+        bottomNameEl.textContent = playerLabel;
+        bottomAvatar.textContent = '👤';
+      } else {
+        topNameEl.textContent = playerLabel;
+        topAvatar.textContent = '👤';
+        bottomNameEl.textContent = aiLabel;
+        bottomAvatar.textContent = '🤖';
+      }
+
+      // 차례 배지 업데이트
+      const topInd = document.getElementById('top-turn-indicator');
+      const bottomInd = document.getElementById('bottom-turn-indicator');
+
+      const topColor = bottomIsPlayer ? (isPlayerWhite ? 'b' : 'w') : state.playerColor;
+      const bottomColor = topColor === 'w' ? 'b' : 'w';
+
+      if (isGameOver) {
+        topInd.textContent = '종료';
+        bottomInd.textContent = '종료';
+        topInd.className = bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0';
+      } else {
+        if (turn === topColor) {
+          topInd.textContent = topColor === state.playerColor ? '내 차례' : 'AI 차례';
+          topInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0';
+          bottomInd.textContent = '대기 중';
+          bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0';
+        } else {
+          bottomInd.textContent = bottomColor === state.playerColor ? '내 차례' : 'AI 차례';
+          bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0';
+          topInd.textContent = '대기 중';
+          topInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0';
+        }
+      }
+
+      // 상태 배너 텍스트
+      const iconEl = document.getElementById('status-icon');
+      const mainTextEl = document.getElementById('status-main-text');
+      const subTextEl = document.getElementById('status-sub-text');
+
+      if (isGameOver) {
+        iconEl.textContent = '🏁';
+        if (state.game.in_checkmate()) {
+          const winner = turn === 'w' ? '흑(Black)' : '백(White)';
+          mainTextEl.textContent = `체크메이트! ${winner} 승리`;
+          subTextEl.textContent = '새 게임을 눌러 다시 대국할 수 있습니다.';
+        } else if (state.game.in_stalemate()) {
+          mainTextEl.textContent = '스테일메이트 — 무승부';
+          subTextEl.textContent = '합법적인 이동 수가 없어 무승부로 종료되었습니다.';
+        } else {
+          mainTextEl.textContent = '무승부로 대국이 종료되었습니다';
+          subTextEl.textContent = '동형반복, 기물 부족 또는 50수 규칙에 해당합니다.';
+        }
+      } else if (state.game.in_check()) {
+        iconEl.textContent = '⚠️';
+        mainTextEl.textContent = `체크(Check)! ${turn === 'w' ? '백' : '흑'}의 킹이 위협받고 있습니다`;
+        subTextEl.textContent = turn === state.playerColor ? '킹을 피하거나 공격을 차단하세요.' : 'AI가 대응 수를 찾고 있습니다...';
+      } else if (turn === state.playerColor) {
+        iconEl.textContent = '♟️';
+        mainTextEl.textContent = `내 차례입니다 (${state.playerColor === 'w' ? '백' : '흑'})`;
+        subTextEl.textContent = '기물을 클릭하거나 드래그하여 착수하세요.';
+      } else {
+        iconEl.textContent = '🧠';
+        mainTextEl.textContent = `스톡피시 AI (${cfg.name}) 사고 중...`;
+        subTextEl.textContent = '최적의 응수를 계산하고 있습니다.';
+      }
+
+      // 버튼 활성화 상태
+      document.getElementById('btn-undo').disabled = state.game.history().length === 0 || state.isAiThinking;
+      document.getElementById('btn-hint').disabled = isGameOver || state.isAiThinking || turn !== state.playerColor;
+      document.getElementById('btn-resign').disabled = isGameOver;
+    }
+
+    /**
+     * 대국 종료 모달 표시
+     */
+    function showGameOverModal(resigned = false) {
+      const iconEl = document.getElementById('gameover-icon');
+      const titleEl = document.getElementById('gameover-title');
+      const descEl = document.getElementById('gameover-desc');
+
+      if (resigned) {
+        iconEl.textContent = '🏳️';
+        titleEl.textContent = '기권하셨습니다';
+        descEl.textContent = `스톡피시 AI (${DIFFICULTY_CONFIG[state.difficulty].name})의 승리입니다.`;
+      } else if (state.game.in_checkmate()) {
+        const loser = state.game.turn();
+        const playerWon = loser !== state.playerColor;
+        iconEl.textContent = playerWon ? '🏆' : '🤖';
+        titleEl.textContent = playerWon ? '체크메이트 승리!' : '체크메이트 패배';
+        descEl.textContent = playerWon
+          ? `축하합니다! ${DIFFICULTY_CONFIG[state.difficulty].name} AI를 꺾으셨습니다.`
+          : `스톡피시 AI (${DIFFICULTY_CONFIG[state.difficulty].name})가 승리했습니다.`;
+      } else if (state.game.in_stalemate()) {
+        iconEl.textContent = '🤝';
+        titleEl.textContent = '스테일메이트 (무승부)';
+        descEl.textContent = '체크 상태가 아니지만 더 이상 둘 수 있는 합법 수가 없습니다.';
+      } else if (state.game.in_threefold_repetition()) {
+        iconEl.textContent = '🔁';
+        titleEl.textContent = '3회 동형반복 (무승부)';
+        descEl.textContent = '동일한 국면이 3번 반복되어 무승부가 선언되었습니다.';
+      } else if (state.game.insufficient_material()) {
+        iconEl.textContent = '⚖️';
+        titleEl.textContent = '기물 부족 (무승부)';
+        descEl.textContent = '양측 모두 체크메이트를 만들 수 있는 기물이 부족합니다.';
+      } else {
+        iconEl.textContent = '🤝';
+        titleEl.textContent = '무승부';
+        descEl.textContent = '대국이 무승부로 종료되었습니다.';
+      }
+
+      const modal = document.getElementById('gameover-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    /**
+     * 새 게임 시작
+     */
+    function startNewGame() {
+      engine.stop();
+      state.isAiThinking = false;
+      document.getElementById('ai-thinking-pill').classList.add('hidden');
+
+      state.game = new Chess();
+      if (state.selectedSideChoice === 'random') {
+        state.playerColor = Math.random() < 0.5 ? 'w' : 'b';
+      } else {
+        state.playerColor = state.selectedSideChoice;
+      }
+
+      state.flipped = state.playerColor === 'b';
+      state.selectedSquare = null;
+      state.legalDestinations = [];
+      state.lastMove = null;
+      state.hintMove = null;
+      state.evalWhiteCp = 0;
+      state.evalMate = null;
+
+      updateEvalBar();
+      afterMoveUpdates();
+
+      const sideKo = state.playerColor === 'w' ? '백 (선공)' : '흑 (후공)';
+      showToast(`새 대국 시작! 진영: ${sideKo} · ${DIFFICULTY_CONFIG[state.difficulty].name}`);
+
+      maybeTriggerAiTurn();
+    }
+
+    /**
+     * ============================================================================
+     * 6. 포인터 기반 클릭 & 드래그 앤 드롭 인터랙션
+     * ============================================================================
+     */
+    function getSquareFromPoint(clientX, clientY) {
+      const rect = boardEl.getBoundingClientRect();
+      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        return null;
+      }
+      const visualCol = Math.floor(((clientX - rect.left) / rect.width) * 8);
+      const visualRow = Math.floor(((clientY - rect.top) / rect.height) * 8);
+      const r = state.flipped ? 7 - visualRow : visualRow;
+      const c = state.flipped ? 7 - visualCol : visualCol;
+      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+      return files[c] + (8 - r);
+    }
+
+    boardEl.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      const square = getSquareFromPoint(e.clientX, e.clientY);
+      if (!square) return;
+
+      const piece = state.game.get(square);
+      const canDrag =
+        !state.game.game_over() &&
+        !state.isAiThinking &&
+        state.game.turn() === state.playerColor &&
+        piece &&
+        piece.color === state.playerColor;
+
+      if (canDrag) {
+        state.dragState = {
+          from: square,
+          pieceKey: piece.color + piece.type.toUpperCase(),
+          startX: e.clientX,
+          startY: e.clientY,
+          isDragging: false,
+        };
+      } else {
+        handleSquareInteraction(square);
+      }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!state.dragState) return;
+      const dx = e.clientX - state.dragState.startX;
+      const dy = e.clientY - state.dragState.startY;
+
+      if (!state.dragState.isDragging && Math.hypot(dx, dy) > 6) {
+        state.dragState.isDragging = true;
+        state.selectedSquare = state.dragState.from;
+        state.legalDestinations = state.game.moves({ square: state.dragState.from, verbose: true });
+        renderBoard();
+
+        // 원본 칸 기물 반투명 처리
+        const originCell = boardEl.querySelector(`[data-square="${state.dragState.from}"] .piece-container`);
+        if (originCell) originCell.style.opacity = '0.25';
+
+        // 고스트 기물 표시
+        const sqSize = boardEl.getBoundingClientRect().width / 8;
+        dragGhostEl.style.width = `${sqSize * 0.9}px`;
+        dragGhostEl.style.height = `${sqSize * 0.9}px`;
+        dragGhostEl.innerHTML = PIECE_SVGS[state.dragState.pieceKey];
+        dragGhostEl.style.display = 'flex';
+        dragGhostEl.style.alignItems = 'center';
+        dragGhostEl.style.justifyContent = 'center';
+      }
+
+      if (state.dragState.isDragging) {
+        dragGhostEl.style.left = `${e.clientX}px`;
+        dragGhostEl.style.top = `${e.clientY}px`;
+      }
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      if (!state.dragState) return;
+      const { from, isDragging } = state.dragState;
+      state.dragState = null;
+      dragGhostEl.style.display = 'none';
+
+      if (!isDragging) {
+        // 단순 클릭으로 처리
+        handleSquareInteraction(from);
+        return;
+      }
+
+      const dropSquare = getSquareFromPoint(e.clientX, e.clientY);
+      if (dropSquare && dropSquare !== from) {
+        const targetMoves = state.legalDestinations.filter((m) => m.to === dropSquare);
+        if (targetMoves.length > 0) {
+          const isPromotion = targetMoves.some((m) => m.promotion);
+          if (isPromotion) {
+            openPromotionModal(from, dropSquare);
+            return;
+          }
+          executePlayerMove({ from, to: dropSquare });
+          return;
+        }
+      }
+
+      // 유효하지 않은 위치에 드롭 시 원복
+      renderBoard();
+    });
+
+    /**
+     * ============================================================================
+     * 7. UI 버튼 이벤트 리스너 등록
+     * ============================================================================
+     */
+    // 난이도 셀렉트 변경
+    document.getElementById('difficulty-select').addEventListener('change', (e) => {
+      state.difficulty = parseInt(e.target.value, 10);
+      const cfg = DIFFICULTY_CONFIG[state.difficulty];
+      document.getElementById('difficulty-elo-badge').textContent = cfg.elo;
+      updatePlayerBarsAndStatus();
+      showToast(`난이도가 ${cfg.name} (${cfg.elo})로 변경되었습니다.`);
+    });
+
+    // 진영 선택 버튼
+    document.querySelectorAll('.side-choice-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.selectedSideChoice = btn.dataset.sideChoice;
+        document.querySelectorAll('.side-choice-btn').forEach((b) => {
+          const active = b.dataset.sideChoice === state.selectedSideChoice;
+          b.className = active
+            ? 'side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-emerald-600/25 border-emerald-500 text-emerald-200'
+            : 'side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700';
+        });
+      });
+    });
+
+    // 새 게임 버튼들
+    document.getElementById('btn-start-with-settings').addEventListener('click', startNewGame);
+    document.getElementById('btn-open-setup').addEventListener('click', startNewGame);
+
+    // 무르기 (플레이어 턴 단위로 복원)
+    document.getElementById('btn-undo').addEventListener('click', () => {
+      if (state.isAiThinking || state.game.history().length === 0) return;
+
+      // 현재 플레이어 차례라면 AI의 수와 내 수를 함께 무름 (2수 무르기)
+      if (state.game.turn() === state.playerColor && state.game.history().length >= 2) {
+        state.game.undo();
+        state.game.undo();
+      } else {
+        state.game.undo();
+      }
+
+      const hist = state.game.history({ verbose: true });
+      const prev = hist[hist.length - 1];
+      state.lastMove = prev ? { from: prev.from, to: prev.to } : null;
+      state.selectedSquare = null;
+      state.legalDestinations = [];
+      state.hintMove = null;
+      state.evalMate = null;
+      state.evalWhiteCp = FallbackEngine.evaluateBoard(state.game);
+
+      updateEvalBar();
+      afterMoveUpdates();
+      showToast('이전 수로 무르기를 완료했습니다.');
+    });
+
+    // 힌트 요청
+    document.getElementById('btn-hint').addEventListener('click', () => {
+      if (state.game.game_over() || state.isAiThinking || state.game.turn() !== state.playerColor) return;
+      showToast('스톡피시가 최선의 수를 분석 중입니다...');
+      engine.search({
+        fen: state.game.fen(),
+        turn: state.game.turn(),
+        skillLevel: 20,
+        depth: 10,
+        movetime: 650,
+        levelNum: 8,
+        purpose: 'hint',
+      });
+    });
+
+    // 보드 회전
+    document.getElementById('btn-flip').addEventListener('click', () => {
+      state.flipped = !state.flipped;
+      renderBoard();
+      updateEvalBar();
+      updateCapturedAndMaterial();
+      updatePlayerBarsAndStatus();
+    });
+
+    // 기권
+    document.getElementById('btn-resign').addEventListener('click', () => {
+      if (state.game.game_over()) return;
+      engine.stop();
+      state.isAiThinking = false;
+      document.getElementById('ai-thinking-pill').classList.add('hidden');
+      sound.play('gameover');
+      showGameOverModal(true);
+    });
+
+    // 테마 변경
+    document.getElementById('btn-theme').addEventListener('click', () => {
+      state.themeIndex = (state.themeIndex + 1) % THEMES.length;
+      const theme = THEMES[state.themeIndex];
+      document.documentElement.setAttribute('data-board-theme', theme.id);
+      document.getElementById('theme-label').textContent = theme.label;
+    });
+
+    // 소리 켜기/끄기
+    document.getElementById('btn-sound').addEventListener('click', () => {
+      sound.enabled = !sound.enabled;
+      document.getElementById('icon-sound-on').classList.toggle('hidden', !sound.enabled);
+      document.getElementById('icon-sound-off').classList.toggle('hidden', sound.enabled);
+      document.getElementById('sound-label').textContent = sound.enabled ? '소리 켜짐' : '소리 꺼짐';
+      if (sound.enabled) sound.play('move');
+    });
+
+    // PGN 복사 (iframe 안전한 execCommand 방식 사용)
+    document.getElementById('btn-copy-pgn').addEventListener('click', () => {
+      const pgn = state.game.pgn();
+      if (!pgn) {
+        showToast('복사할 기보가 없습니다.');
+        return;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = pgn;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast('PGN 기보가 클립보드에 복사되었습니다!');
+      } catch (e) {
+        showToast('기보 복사에 실패했습니다.');
+      }
+      document.body.removeChild(textarea);
+    });
+
+    // 대국 종료 모달 버튼
+    document.getElementById('btn-modal-close').addEventListener('click', () => {
+      const modal = document.getElementById('gameover-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+
+    document.getElementById('btn-modal-rematch').addEventListener('click', () => {
+      const modal = document.getElementById('gameover-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      startNewGame();
+    });
+
+    // 초기 렌더링 실행
+    window.addEventListener('DOMContentLoaded', () => {
+      updateEvalBar();
+      afterMoveUpdates();
+    });
+  </script>
+</body>
+</html>
