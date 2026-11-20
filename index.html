@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>스톡피시 AI 체스 — Stockfish Chess</title>
+  <title>Zinfty — Stockfish AI Chess</title>
+
+  <!-- 브라우저 탭 파비콘 (기본 지구본 아이콘 대신 logo.png 표시) -->
+  <link id="favicon" rel="icon" type="image/png" href="./logo.png" />
+  <link id="shortcut-favicon" rel="shortcut icon" type="image/png" href="./logo.png" />
+  <link rel="apple-touch-icon" href="./logo.png" />
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,7 +19,7 @@
   <!-- Google Fonts: Noto Sans KR & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <script>
     tailwind.config = {
@@ -32,16 +37,28 @@
 
   <style>
     :root {
-      /* 기본 테마: 토너먼트 에메랄드 */
+      /* 기본 테마: Zinfty 모노크롬 다크 */
+      --sq-light: #cfd5df;
+      --sq-dark: #434b59;
+      --sq-coord-light: #373e4a;
+      --sq-coord-dark: #dbe1ea;
+      --sq-selected: rgba(255, 255, 255, 0.52);
+      --sq-last-from: rgba(226, 232, 240, 0.34);
+      --sq-last-to: rgba(255, 255, 255, 0.44);
+      --sq-hint-from: rgba(148, 163, 184, 0.55);
+      --sq-hint-to: rgba(248, 250, 252, 0.62);
+    }
+
+    [data-board-theme="green"] {
       --sq-light: #ebecd0;
       --sq-dark: #739552;
       --sq-coord-light: #739552;
       --sq-coord-dark: #ebecd0;
       --sq-selected: rgba(245, 246, 130, 0.82);
-      --sq-last-from: rgba(245, 246, 130, 0.52);
-      --sq-last-to: rgba(245, 246, 130, 0.65);
-      --sq-hint-from: rgba(56, 189, 248, 0.62);ㅊ
-      --sq-hint-to: rgba(16, 185, 129, 0.68);
+      --sq-last-from: rgba(245, 246, 130, 0.50);
+      --sq-last-to: rgba(245, 246, 130, 0.64);
+      --sq-hint-from: rgba(56, 189, 248, 0.58);
+      --sq-hint-to: rgba(16, 185, 129, 0.65);
     }
 
     [data-board-theme="wood"] {
@@ -49,13 +66,11 @@
       --sq-dark: #b58863;
       --sq-coord-light: #b58863;
       --sq-coord-dark: #f0d9b5;
-    }
-
-    [data-board-theme="slate"] {
-      --sq-light: #dee3e6;
-      --sq-dark: #5d738a;
-      --sq-coord-light: #5d738a;
-      --sq-coord-dark: #dee3e6;
+      --sq-selected: rgba(245, 246, 130, 0.78);
+      --sq-last-from: rgba(245, 246, 130, 0.46);
+      --sq-last-to: rgba(245, 246, 130, 0.60);
+      --sq-hint-from: rgba(56, 189, 248, 0.58);
+      --sq-hint-to: rgba(245, 158, 11, 0.62);
     }
 
     * {
@@ -65,10 +80,41 @@
 
     body {
       font-family: 'Noto Sans KR', sans-serif;
-      background-color: #0f172a;
-      color: #f1f5f9;
+      background-color: #07080b;
+      background-image:
+        radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 38%),
+        radial-gradient(circle at 88% 100%, rgba(148, 163, 184, 0.04) 0%, transparent 42%);
+      color: #f4f6fa;
       overflow-x: hidden;
       user-select: none;
+    }
+
+    /* Zinfty 왼쪽 상단 로고 프레임 & 글로우 효과 */
+    .zinfty-logo-frame {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.30);
+      box-shadow:
+        0 0 18px rgba(255, 255, 255, 0.16),
+        inset 0 0 10px rgba(255, 255, 255, 0.08);
+      background: #090a0e;
+      overflow: hidden;
+      flex-shrink: 0;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .zinfty-logo-frame:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.55);
+      box-shadow:
+        0 0 24px rgba(255, 255, 255, 0.28),
+        inset 0 0 12px rgba(255, 255, 255, 0.12);
+    }
+
+    .zinfty-brand-title {
+      text-shadow: 0 0 14px rgba(255, 255, 255, 0.32);
     }
 
     .sq-light {
@@ -88,7 +134,7 @@
     }
 
     .sq-selected {
-      background-color: var(--sq-selected) !important;
+      box-shadow: inset 0 0 0 9999px var(--sq-selected);
     }
 
     .sq-last-from {
@@ -101,12 +147,12 @@
 
     .sq-hint-from {
       box-shadow: inset 0 0 0 9999px var(--sq-hint-from);
-      animation: hintPulse 1.2s ease-in-out infinite;
+      animation: hintPulse 1.25s ease-in-out infinite;
     }
 
     .sq-hint-to {
       box-shadow: inset 0 0 0 9999px var(--sq-hint-to);
-      animation: hintPulse 1.2s ease-in-out infinite;
+      animation: hintPulse 1.25s ease-in-out infinite;
     }
 
     .sq-check {
@@ -118,13 +164,13 @@
       50% { filter: brightness(1.16); }
     }
 
-    /* 기물 SVG 부드러운 트랜지션 */
+    /* 기물 SVG 트랜지션 */
     .chess-piece {
       width: 84%;
       height: 84%;
       transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
       pointer-events: none;
-      filter: drop-shadow(0 2px 2.5px rgba(0, 0, 0, 0.32));
+      filter: drop-shadow(0 2.5px 3px rgba(0, 0, 0, 0.42));
     }
 
     .square-cell:hover .chess-piece {
@@ -133,10 +179,11 @@
 
     /* 합법 이동 표시 점 & 잡기 링 */
     .move-dot {
-      width: 30%;
-      height: 30%;
+      width: 29%;
+      height: 29%;
       border-radius: 9999px;
-      background-color: rgba(15, 23, 42, 0.24);
+      background-color: rgba(15, 23, 42, 0.34);
+      box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.22);
       pointer-events: none;
     }
 
@@ -144,7 +191,8 @@
       position: absolute;
       inset: 7%;
       border-radius: 9999px;
-      border: 4.5px solid rgba(15, 23, 42, 0.26);
+      border: 4.5px solid rgba(15, 23, 42, 0.38);
+      box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.22);
       pointer-events: none;
     }
 
@@ -154,15 +202,15 @@
       height: 6px;
     }
     .custom-scroll::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.4);
+      background: rgba(15, 17, 23, 0.55);
       border-radius: 9999px;
     }
     .custom-scroll::-webkit-scrollbar-thumb {
-      background: rgba(100, 116, 139, 0.5);
+      background: rgba(148, 163, 184, 0.35);
       border-radius: 9999px;
     }
     .custom-scroll::-webkit-scrollbar-thumb:hover {
-      background: rgba(148, 163, 184, 0.7);
+      background: rgba(226, 232, 240, 0.55);
     }
 
     /* 드래그 중인 플로팅 기물 */
@@ -171,46 +219,111 @@
       pointer-events: none;
       z-index: 9999;
       transform: translate(-50%, -50%) scale(1.14);
-      filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(0 12px 16px rgba(0, 0, 0, 0.55));
       display: none;
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/30">
+<body class="min-h-screen flex flex-col selection:bg-white/20">
 
-  <!-- 상단 헤더 -->
-  <header class="w-full border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
-      <!-- 로고 & 타이틀 -->
-      <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-950/50 border border-emerald-400/30">
-          <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 22H5v-2h14v2M17.16 8.26A4.96 4.96 0 0 0 18 5.5C18 3.57 16.43 2 14.5 2c-1.3 0-2.42.72-3 1.79A3.48 3.48 0 0 0 8.5 2C6.57 2 5 3.57 5 5.5c0 1.12.53 2.11 1.35 2.75L4 18h16l-2.84-9.74Z"/>
+  <!-- 상단 헤더 (왼쪽 상단 Zinfty 로고 배치) -->
+  <header class="w-full border-b border-white/10 bg-[#0b0d12]/90 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 h-16 sm:h-[74px] flex items-center justify-between gap-2">
+
+      <!-- 왼쪽 상단 브랜드 로고 영역 -->
+      <a href="#top" id="brand-logo-link" class="flex items-center gap-3 group focus:outline-none" title="Zinfty — Stockfish AI Chess">
+        <div class="zinfty-logo-frame flex items-center justify-center">
+          <!-- GitHub에서 index.html과 같은 폴더에 logo.png를 넣으면 자동으로 표시되는 사용자 로고 -->
+          <img
+            id="brand-logo"
+            src="./logo.png"
+            alt="Zinfty Logo"
+            class="w-full h-full object-contain"
+            onerror="handleLogoFallback()"
+          />
+          <!-- logo.png 파일이 아직 없을 때만 표시되는 기본 SVG 로고 -->
+          <svg id="brand-logo-fallback" class="w-full h-full hidden" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="zinftyBg" cx="50%" cy="45%" r="60%">
+                <stop offset="0%" stop-color="#222630" />
+                <stop offset="100%" stop-color="#07080b" />
+              </radialGradient>
+              <filter id="silverGlow" x="-25%" y="-25%" width="150%" height="150%">
+                <feGaussianBlur stdDeviation="2.2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <rect width="96" height="96" fill="url(#zinftyBg)" />
+            <circle cx="16" cy="18" r="1.1" fill="#ffffff" opacity="0.7" />
+            <circle cx="80" cy="16" r="1.3" fill="#ffffff" opacity="0.6" />
+            <circle cx="82" cy="68" r="1" fill="#ffffff" opacity="0.55" />
+            <circle cx="14" cy="72" r="1.2" fill="#ffffff" opacity="0.5" />
+            <g opacity="0.34" stroke="#94a3b8" stroke-width="0.6">
+              <rect x="22" y="18" width="13" height="11" fill="#e2e8f0" />
+              <rect x="35" y="18" width="13" height="11" fill="#0f172a" />
+              <rect x="48" y="18" width="13" height="11" fill="#e2e8f0" />
+              <rect x="61" y="18" width="13" height="11" fill="#0f172a" />
+
+              <rect x="22" y="29" width="13" height="11" fill="#0f172a" />
+              <rect x="35" y="29" width="13" height="11" fill="#e2e8f0" />
+              <rect x="48" y="29" width="13" height="11" fill="#0f172a" />
+              <rect x="61" y="29" width="13" height="11" fill="#e2e8f0" />
+
+              <rect x="22" y="40" width="13" height="11" fill="#e2e8f0" />
+              <rect x="35" y="40" width="13" height="11" fill="#0f172a" />
+              <rect x="48" y="40" width="13" height="11" fill="#e2e8f0" />
+              <rect x="61" y="40" width="13" height="11" fill="#0f172a" />
+            </g>
+            <g filter="url(#silverGlow)" stroke="#f8fafc" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 22 H46 L26 47 H46 C53 47 57 22 67 22 C75 22 80 28 80 34.5 C80 41 75 47 67 47 C58 47 54 37 48 31" />
+              <circle cx="67.5" cy="34.5" r="7.2" stroke-width="1.8" opacity="0.9" />
+            </g>
+            <text
+              x="48"
+              y="74"
+              text-anchor="middle"
+              font-family="'Noto Sans KR', sans-serif"
+              font-weight="800"
+              font-size="21"
+              letter-spacing="0.5"
+              fill="#0b0d12"
+              stroke="#ffffff"
+              stroke-width="1.4"
+              filter="url(#silverGlow)"
+            >Zinfty</text>
           </svg>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white">스톡피시 AI 체스</h1>
-            <span id="engine-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-amber-300 border border-slate-700/80">
-              <span id="engine-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-              <span id="engine-status-text">엔진 초기화 중...</span>
+
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white zinfty-brand-title">Zinfty</h1>
+            <span class="px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-mono font-bold tracking-wider bg-white/10 text-slate-200 border border-white/20 shadow-[0_0_12px_rgba(255,255,255,0.08)]">
+              STOCKFISH AI CHESS
             </span>
           </div>
-          <p class="hidden sm:block text-xs text-slate-400">Stockfish UCI 엔진 기반 실시간 형세 분석 &amp; 8단계 인공지능 대국</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="engine-badge" class="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-300">
+              <span id="engine-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span id="engine-status-text">Stockfish 엔진 초기화 중...</span>
+            </span>
+          </div>
         </div>
-      </div>
+      </a>
 
-      <!-- 우측 빠른 유틸리티 버튼 -->
-      <div class="flex items-center gap-1.5 sm:gap-2">
-        <button id="btn-theme" type="button" title="체스판 색상 테마 변경" class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs sm:text-sm font-medium border border-slate-700/70 transition flex items-center gap-1.5">
-          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <!-- 우측 유틸리티 버튼 -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <button id="btn-theme" type="button" title="체스판 색상 테마 변경" class="px-2.5 py-2 sm:px-3 sm:py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] active:scale-95 text-slate-200 text-xs sm:text-sm font-medium border border-white/15 transition flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-slate-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
           </svg>
-          <span id="theme-label" class="hidden md:inline">그린 테마</span>
+          <span id="theme-label" class="hidden md:inline">모노크롬</span>
         </button>
 
-        <button id="btn-sound" type="button" title="효과음 켜기/끄기" class="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs sm:text-sm font-medium border border-slate-700/70 transition flex items-center gap-1.5">
-          <svg id="icon-sound-on" class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <button id="btn-sound" type="button" title="효과음 켜기/끄기" class="px-2.5 py-2 sm:px-3 sm:py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] active:scale-95 text-slate-200 text-xs sm:text-sm font-medium border border-white/15 transition flex items-center gap-1.5">
+          <svg id="icon-sound-on" class="w-4 h-4 text-slate-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
           </svg>
           <svg id="icon-sound-off" class="w-4 h-4 text-slate-500 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -219,11 +332,11 @@
           <span class="hidden md:inline" id="sound-label">소리 켜짐</span>
         </button>
 
-        <button id="btn-open-setup" type="button" class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs sm:text-sm font-bold shadow-md shadow-emerald-950/60 transition flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <button id="btn-open-setup" type="button" class="px-3 py-2 sm:px-4 sm:py-2 rounded-xl bg-white text-slate-950 hover:bg-slate-200 active:scale-95 text-xs sm:text-sm font-extrabold shadow-[0_0_18px_rgba(255,255,255,0.2)] transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>새 게임</span>
+          <span>새 대국</span>
         </button>
       </div>
     </div>
@@ -232,19 +345,19 @@
   <!-- 메인 게임 컨테이너 -->
   <main class="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-6 py-3 sm:py-5 flex flex-col lg:flex-row items-center lg:items-stretch justify-center gap-4 lg:gap-6">
 
-    <!-- 좌측: 체스판 + 형세 판단 바 섹션 -->
+    <!-- 좌측: 체스판 + 실시간 형세 판단 바 -->
     <section class="w-full max-w-[600px] lg:max-w-none lg:w-auto flex flex-col items-center justify-center">
 
       <!-- 상단 플레이어(상대방/AI) 바 -->
-      <div class="w-full flex items-center justify-between px-2 py-2 mb-1.5 rounded-xl bg-slate-900/90 border border-slate-800/90">
+      <div class="w-full flex items-center justify-between px-3 py-2 mb-1.5 rounded-xl bg-[#11141c]/95 border border-white/10">
         <div class="flex items-center gap-2.5 min-w-0">
-          <div id="top-avatar" class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold shrink-0">
+          <div id="top-avatar" class="w-8 h-8 rounded-lg bg-white/[0.07] border border-white/15 flex items-center justify-center text-sm font-bold shrink-0">
             🤖
           </div>
           <div class="min-w-0">
             <div class="flex items-center gap-2">
               <span id="top-player-name" class="text-sm font-bold text-slate-100 truncate">스톡피시 AI (Lv.4 중급)</span>
-              <span id="ai-thinking-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span id="ai-thinking-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/15 text-white border border-white/25">
                 <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
@@ -252,14 +365,13 @@
                 수 계산 중...
               </span>
             </div>
-            <!-- 잡은 기물 & 기물 점수 우위 -->
             <div class="flex items-center gap-1.5 h-5 mt-0.5">
               <div id="top-captured" class="flex items-center -space-x-1"></div>
-              <span id="top-material-diff" class="text-xs font-mono font-bold text-emerald-400"></span>
+              <span id="top-material-diff" class="text-xs font-mono font-bold text-slate-200"></span>
             </div>
           </div>
         </div>
-        <div id="top-turn-indicator" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0">
+        <div id="top-turn-indicator" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/[0.06] text-slate-400 border border-white/10 shrink-0">
           대기 중
         </div>
       </div>
@@ -267,10 +379,10 @@
       <!-- 모바일 가로형 형세 판단 바 -->
       <div class="w-full lg:hidden mb-2 flex items-center gap-2 px-1">
         <span class="text-[11px] font-semibold text-slate-400 shrink-0">형세</span>
-        <div class="flex-1 h-4 rounded-full bg-slate-800 overflow-hidden border border-slate-700 relative flex">
+        <div class="flex-1 h-4 rounded-full bg-[#151922] overflow-hidden border border-white/15 relative flex">
           <div id="eval-bar-mobile-white" class="h-full bg-slate-100 transition-all duration-500 ease-out" style="width: 50%;"></div>
-          <div id="eval-bar-mobile-black" class="h-full bg-slate-900 transition-all duration-500 ease-out" style="width: 50%;"></div>
-          <span id="eval-text-mobile" class="absolute inset-0 flex items-center justify-center text-[10px] font-mono font-extrabold text-emerald-400 drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)]">
+          <div id="eval-bar-mobile-black" class="h-full bg-[#151922] transition-all duration-500 ease-out" style="width: 50%;"></div>
+          <span id="eval-text-mobile" class="absolute inset-0 flex items-center justify-center text-[10px] font-mono font-extrabold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)]">
             0.0
           </span>
         </div>
@@ -279,27 +391,29 @@
       <!-- 체스판 + 데스크톱 세로형 형세 판단 바 -->
       <div class="w-full flex items-stretch justify-center gap-2.5 sm:gap-3">
         <!-- 데스크톱 세로형 형세 판단 바 -->
-        <div class="hidden lg:flex flex-col items-center justify-between w-8 rounded-xl bg-slate-900 border border-slate-700/80 overflow-hidden relative shadow-inner select-none" title="실시간 스톡피시 형세 판단 바">
-          <div id="eval-bar-top-fill" class="w-full bg-slate-900 transition-all duration-500 ease-out" style="height: 50%;"></div>
+        <div class="hidden lg:flex flex-col items-center justify-between w-8 rounded-xl bg-[#11141c] border border-white/15 overflow-hidden relative shadow-inner select-none" title="실시간 스톡피시 형세 판단 바">
+          <div id="eval-bar-top-fill" class="w-full bg-[#141720] transition-all duration-500 ease-out" style="height: 50%;"></div>
           <div id="eval-bar-bottom-fill" class="w-full bg-slate-100 transition-all duration-500 ease-out" style="height: 50%;"></div>
           <!-- 중앙 균형선 -->
-          <div class="absolute inset-x-0 top-1/2 h-[1.5px] bg-emerald-500/60 z-10"></div>
+          <div class="absolute inset-x-0 top-1/2 h-[1.5px] bg-white/40 z-10"></div>
           <!-- 수치 배지 -->
-          <span id="eval-text-desktop" class="absolute top-2 inset-x-0 text-center text-[10px] font-mono font-extrabold text-slate-200 z-20 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+          <span id="eval-text-desktop" class="absolute top-2 inset-x-0 text-center text-[10px] font-mono font-extrabold text-slate-200 z-20 drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">
             0.0
           </span>
         </div>
 
         <!-- 8x8 체스판 래퍼 -->
-        <div id="board-wrapper" class="relative w-full aspect-square max-w-[min(92vw,540px)] lg:w-[min(64vh,540px)] lg:h-[min(64vh,540px)] rounded-2xl overflow-hidden shadow-2xl shadow-black/70 ring-4 ring-slate-800/90 bg-slate-800">
+        <div id="board-wrapper" class="relative w-full aspect-square max-w-[min(92vw,540px)] lg:w-[min(64vh,540px)] lg:h-[min(64vh,540px)] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.85)] ring-1 ring-white/20 bg-[#141720]">
           <div id="chessboard" class="w-full h-full grid grid-cols-8 grid-rows-8"></div>
+          <!-- 힌트 화살표 SVG 오버레이 -->
+          <svg id="hint-arrow-overlay" class="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 800 800"></svg>
         </div>
       </div>
 
       <!-- 하단 플레이어(사용자) 바 -->
-      <div class="w-full flex items-center justify-between px-2 py-2 mt-1.5 rounded-xl bg-slate-900/90 border border-slate-800/90">
+      <div class="w-full flex items-center justify-between px-3 py-2 mt-1.5 rounded-xl bg-[#11141c]/95 border border-white/10">
         <div class="flex items-center gap-2.5 min-w-0">
-          <div id="bottom-avatar" class="w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center text-sm font-bold shrink-0">
+          <div id="bottom-avatar" class="w-8 h-8 rounded-lg bg-white/15 border border-white/30 text-white flex items-center justify-center text-sm font-bold shrink-0">
             👤
           </div>
           <div class="min-w-0">
@@ -308,39 +422,39 @@
             </div>
             <div class="flex items-center gap-1.5 h-5 mt-0.5">
               <div id="bottom-captured" class="flex items-center -space-x-1"></div>
-              <span id="bottom-material-diff" class="text-xs font-mono font-bold text-emerald-400"></span>
+              <span id="bottom-material-diff" class="text-xs font-mono font-bold text-slate-200"></span>
             </div>
           </div>
         </div>
-        <div id="bottom-turn-indicator" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+        <div id="bottom-turn-indicator" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/15 text-white border border-white/30 shrink-0">
           내 차례
         </div>
       </div>
 
       <!-- 보드 하단 주요 액션 컨트롤 바 -->
       <div class="w-full grid grid-cols-4 gap-2 mt-2.5">
-        <button id="btn-undo" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 border border-slate-700/80 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
-          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <button id="btn-undo" type="button" class="py-2.5 px-2 rounded-xl bg-[#131722] hover:bg-[#1c2231] disabled:opacity-35 disabled:pointer-events-none active:scale-95 border border-white/12 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+          <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
           </svg>
           <span>무르기</span>
         </button>
 
-        <button id="btn-hint" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none active:scale-95 border border-slate-700/80 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
-          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <button id="btn-hint" type="button" class="py-2.5 px-2 rounded-xl bg-[#131722] hover:bg-[#1c2231] disabled:opacity-35 disabled:pointer-events-none active:scale-95 border border-white/12 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
           <span>힌트</span>
         </button>
 
-        <button id="btn-flip" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-slate-700 active:scale-95 border border-slate-700/80 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
-          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <button id="btn-flip" type="button" class="py-2.5 px-2 rounded-xl bg-[#131722] hover:bg-[#1c2231] active:scale-95 border border-white/12 text-slate-100 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+          <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
           </svg>
           <span>보드 회전</span>
         </button>
 
-        <button id="btn-resign" type="button" class="py-2.5 px-2 rounded-xl bg-slate-800/95 hover:bg-rose-950/70 hover:border-rose-800/70 disabled:opacity-40 disabled:pointer-events-none active:scale-95 border border-slate-700/80 text-slate-200 hover:text-rose-300 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
+        <button id="btn-resign" type="button" class="py-2.5 px-2 rounded-xl bg-[#131722] hover:bg-rose-950/60 hover:border-rose-500/40 disabled:opacity-35 disabled:pointer-events-none active:scale-95 border border-white/12 text-slate-200 hover:text-rose-200 text-xs sm:text-sm font-semibold transition flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5">
           <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
           </svg>
@@ -352,24 +466,24 @@
     <!-- 우측: 난이도 설정, 상태 안내, 기보 패널 -->
     <aside class="w-full max-w-[600px] lg:w-96 flex flex-col gap-3.5">
 
-      <!-- 빠른 대국 설정 카드 -->
-      <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl">
+      <!-- AI 난이도 및 진영 설정 카드 -->
+      <div class="p-4 rounded-2xl bg-[#11141c]/95 border border-white/10 shadow-xl">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
-            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
             </svg>
             AI 난이도 및 진영 설정
           </h2>
-          <span id="difficulty-elo-badge" class="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+          <span id="difficulty-elo-badge" class="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-white/10 text-slate-200 border border-white/20">
             Elo ~1600
           </span>
         </div>
 
         <!-- 8단계 난이도 선택 -->
         <div class="mb-3">
-          <label for="difficulty-select" class="block text-xs text-slate-400 mb-1.5">인공지능 수준 (8단계)</label>
-          <select id="difficulty-select" class="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition cursor-pointer">
+          <label for="difficulty-select" class="block text-xs text-slate-400 mb-1.5">스톡피시 엔진 수준 (8단계)</label>
+          <select id="difficulty-select" class="w-full px-3 py-2.5 rounded-xl bg-[#181c27] border border-white/15 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-white/40 transition cursor-pointer">
             <option value="1">Lv.1 입문 (Skill 0 · 체스 첫걸음)</option>
             <option value="2">Lv.2 초급 (Skill 3 · 기본 전술)</option>
             <option value="3">Lv.3 중하급 (Skill 6 · 클럽 입문자)</option>
@@ -381,56 +495,55 @@
           </select>
         </div>
 
-        <!-- 진영 선택 버튼 그룹 + 즉시 시작 -->
+        <!-- 진영 선택 버튼 그룹 -->
         <div class="grid grid-cols-3 gap-1.5 mb-3">
-          <button type="button" data-side-choice="w" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-emerald-600/25 border-emerald-500 text-emerald-200">
+          <button type="button" data-side-choice="w" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-white/15 border-white/50 text-white shadow-[0_0_12px_rgba(255,255,255,0.08)]">
             ♔ 백 (선공)
           </button>
-          <button type="button" data-side-choice="b" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750">
+          <button type="button" data-side-choice="b" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-[#181c27] border-white/10 text-slate-300 hover:bg-[#202634]">
             ♚ 흑 (후공)
           </button>
-          <button type="button" data-side-choice="random" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750">
+          <button type="button" data-side-choice="random" class="side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-[#181c27] border-white/10 text-slate-300 hover:bg-[#202634]">
             🎲 랜덤
           </button>
         </div>
 
-        <button id="btn-start-with-settings" type="button" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.99] text-white text-sm font-bold shadow-lg shadow-emerald-950/50 transition">
+        <button id="btn-start-with-settings" type="button" class="w-full py-2.5 rounded-xl bg-white hover:bg-slate-200 active:scale-[0.99] text-slate-950 text-sm font-extrabold shadow-[0_0_20px_rgba(255,255,255,0.16)] transition">
           선택한 설정으로 새 대국 시작
         </button>
       </div>
 
-      <!-- 실시간 안내 & 힌트 알림 배너 -->
-      <div id="status-banner" class="px-4 py-3 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2">
+      <!-- 실시간 안내 배너 -->
+      <div id="status-banner" class="px-4 py-3 rounded-2xl bg-[#11141c]/95 border border-white/10 flex items-center justify-between gap-2">
         <div class="flex items-center gap-2.5">
           <span id="status-icon" class="text-lg">♟️</span>
           <div>
-            <p id="status-main-text" class="text-sm font-bold text-slate-100">대국 진행 중 — 백의 차례입니다</p>
+            <p id="status-main-text" class="text-sm font-bold text-white">대국 진행 중 — 백의 차례입니다</p>
             <p id="status-sub-text" class="text-xs text-slate-400">기물을 클릭하거나 드래그하여 이동하세요.</p>
           </div>
         </div>
       </div>
 
       <!-- 기보 (Move History) 패널 -->
-      <div class="flex-1 min-h-[220px] max-h-[340px] lg:max-h-none p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col">
-        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-800">
-          <h2 class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
-            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <div class="flex-1 min-h-[210px] max-h-[320px] lg:max-h-none p-4 rounded-2xl bg-[#11141c]/95 border border-white/10 shadow-xl flex flex-col">
+        <div class="flex items-center justify-between pb-2.5 mb-2 border-b border-white/10">
+          <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             대국 기보 (PGN)
           </h2>
           <div class="flex items-center gap-2">
             <span id="move-count-badge" class="text-xs font-mono text-slate-400">0수</span>
-            <button id="btn-copy-pgn" type="button" title="PGN 기보 복사" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-300 border border-slate-700 transition">
+            <button id="btn-copy-pgn" type="button" title="PGN 기보 복사" class="px-2.5 py-1 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] text-[11px] font-semibold text-slate-200 border border-white/15 transition">
               복사
             </button>
           </div>
         </div>
 
-        <!-- 기보 스크롤 영역 -->
         <div id="move-history-container" class="flex-1 overflow-y-auto custom-scroll pr-1">
           <div id="move-history-empty" class="h-full flex flex-col items-center justify-center text-center py-8 text-slate-500 text-xs">
-            <p class="font-medium text-slate-400 mb-1">아직 착수된 기보가 없습니다</p>
+            <p class="font-medium text-slate-300 mb-1">아직 착수된 기보가 없습니다</p>
             <p>첫 수를 두면 여기에 표준 대수 기보가 기록됩니다.</p>
           </div>
           <div id="move-history-list" class="space-y-1 font-mono text-xs hidden"></div>
@@ -444,8 +557,8 @@
   <div id="drag-ghost"></div>
 
   <!-- 폰 프로모션(승진) 선택 모달 -->
-  <div id="promotion-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-    <div class="w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 p-5 shadow-2xl text-center">
+  <div id="promotion-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-xs rounded-2xl bg-[#12151e] border border-white/20 p-5 shadow-2xl text-center">
       <h3 class="text-base font-extrabold text-white mb-1">폰 프로모션 (승진)</h3>
       <p class="text-xs text-slate-400 mb-4">승진할 기물을 선택하세요</p>
       <div id="promotion-choices" class="grid grid-cols-4 gap-2.5"></div>
@@ -453,51 +566,81 @@
   </div>
 
   <!-- 대국 종료 결과 모달 -->
-  <div id="gameover-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-    <div class="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-700/90 p-6 shadow-2xl text-center">
-      <div id="gameover-icon" class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-3xl">
+  <div id="gameover-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm rounded-3xl bg-[#12151e] border border-white/20 p-6 shadow-2xl text-center">
+      <div id="gameover-icon" class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-white/10 border border-white/25 flex items-center justify-center text-3xl">
         🏆
       </div>
       <h3 id="gameover-title" class="text-xl font-extrabold text-white mb-1.5">체크메이트!</h3>
       <p id="gameover-desc" class="text-sm text-slate-300 mb-5">백이 승리했습니다.</p>
 
       <div class="grid grid-cols-2 gap-2.5">
-        <button id="btn-modal-close" type="button" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold border border-slate-700 transition">
+        <button id="btn-modal-close" type="button" class="py-2.5 px-4 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] text-slate-200 text-sm font-bold border border-white/15 transition">
           기보 확인하기
         </button>
-        <button id="btn-modal-rematch" type="button" class="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-950/60 transition">
+        <button id="btn-modal-rematch" type="button" class="py-2.5 px-4 rounded-xl bg-white hover:bg-slate-200 text-slate-950 text-sm font-extrabold shadow-[0_0_18px_rgba(255,255,255,0.2)] transition">
           다시 대국하기
         </button>
       </div>
     </div>
   </div>
 
-  <!-- 토스트 메시지 박스 (alert 대신 사용) -->
+  <!-- 토스트 메시지 박스 -->
   <div id="toast-box" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 translate-y-2">
-    <div id="toast-message" class="px-4 py-2.5 rounded-full bg-slate-800/95 text-white text-xs sm:text-sm font-semibold border border-slate-600/80 shadow-xl backdrop-blur-md">
+    <div id="toast-message" class="px-4 py-2.5 rounded-full bg-[#151923]/95 text-white text-xs sm:text-sm font-semibold border border-white/25 shadow-2xl backdrop-blur-md">
       알림 메시지
     </div>
   </div>
 
   <script>
     /**
+     * 로고 및 파비콘 폴백 처리
+     * (logo.png가 같은 폴더에 있으면 그대로 표시되고, 없을 때만 SVG 로고로 대체되어 지구본 아이콘을 방지)
+     */
+    function handleLogoFallback() {
+      const img = document.getElementById('brand-logo');
+      const fallbackSvg = document.getElementById('brand-logo-fallback');
+      if (img) img.style.display = 'none';
+      if (fallbackSvg) fallbackSvg.classList.remove('hidden');
+
+      const svgDataUri = 'data:image/svg+xml,' + encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="14" fill="#090a0e"/>
+          <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2"/>
+          <path d="M14 20 H32 L18 42 H32 C38 42 41 20 48 20 C53 20 56 25 56 31 C56 37 53 42 48 42 C41 42 38 33 33 28" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`
+      );
+
+      const fav = document.getElementById('favicon');
+      const shortcutFav = document.getElementById('shortcut-favicon');
+      if (fav) {
+        fav.type = 'image/svg+xml';
+        fav.href = svgDataUri;
+      }
+      if (shortcutFav) {
+        shortcutFav.type = 'image/svg+xml';
+        shortcutFav.href = svgDataUri;
+      }
+    }
+
+    /**
      * ============================================================================
-     * 1. 고해상도 인라인 SVG 체스 기물 세트 (Cburnett/Staunton 토너먼트 표준 벡터)
+     * 1. 고해상도 인라인 SVG Staunton 토너먼트 체스 기물 세트
      * ============================================================================
      */
     const PIECE_SVGS = {
-      wP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#fff" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round"/></svg>`,
-      wR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fff" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none" stroke-linejoin="miter"/></g></svg>`,
-      wN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#fff"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#fff"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="#1e293b"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="#1e293b"/></g></svg>`,
-      wB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g fill="#fff" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke-linejoin="miter"/></g></svg>`,
-      wQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#fff" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM24.5 7.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM33 9a2 2 0 1 1-4 0 2 2 0 1 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11.5 30c3.5-1 18.5-1 22 0M12 33.5c6-1 15-1 21 0" fill="none"/></g></svg>`,
-      wK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#1e293b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#fff" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#fff"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>`,
-      bP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#1e293b" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/></svg>`,
-      bR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#1e293b" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12.5 32l1.5-2.5h17l1.5 2.5h-20zM12 36v-4h21v4H12z" stroke-linecap="butt"/><path d="M14 29.5v-13h17v13H14z" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M14 16.5L11 14h23l-3 2.5H14zM11 14V9h4v2h5V9h5v2h5V9h4v5H11z" stroke-linecap="butt"/><path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 16.5h17M11 14h23" fill="none" stroke="#cbd5e1" stroke-width="1.1" stroke-linejoin="miter"/></g></svg>`,
-      bN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#1e293b"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#1e293b"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="#e2e8f0" stroke="#e2e8f0"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="#e2e8f0" stroke="#e2e8f0"/><path d="M 24.55,10.4 L 24.1,11.85 L 24.6,12 C 27.75,13 30.25,14.49 32.5,18.75 C 34.75,23.01 35.75,29.06 35.25,39 L 35.2,39.5 L 37.45,39.5 L 37.5,39 C 38,28.94 36.62,22.15 34.25,17.66 C 31.88,13.17 28.46,11.02 25.06,10.5 L 24.55,10.4 z" fill="#cbd5e1" stroke="none"/></g></svg>`,
-      bB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g fill="#1e293b" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke="#cbd5e1" stroke-linejoin="miter"/></g></svg>`,
-      bQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#1e293b" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g fill="#1e293b" stroke="none"><circle cx="6" cy="12" r="2.75"/><circle cx="14" cy="9" r="2.75"/><circle cx="22.5" cy="8" r="2.75"/><circle cx="31" cy="9" r="2.75"/><circle cx="39" cy="12" r="2.75"/></g><path d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5 9 26z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11 38.5a35 35 1 0 0 23 0" fill="none" stroke-linecap="butt"/><path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0M10.5 37.5a35 35 1 0 0 24 0" fill="none" stroke="#cbd5e1" stroke-width="1.1"/></g></svg>`,
-      bK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#1e293b" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#1e293b"/><path d="M20 8h5" stroke-linejoin="miter"/><path d="M32 29.5s8.5-4 6.03-9.65C34.15 14 25 18 22.5 24.5l.01 2.1-.01-2.1C20 18 9.906 14 6.997 19.85c-2.497 5.65 4.853 9 4.853 9M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke="#cbd5e1" stroke-width="1.1"/></g></svg>`,
+      wP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#ffffff" stroke="#0f172a" stroke-width="1.65" stroke-linecap="round"/></svg>`,
+      wR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#ffffff" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none" stroke-linejoin="miter"/></g></svg>`,
+      wN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#ffffff"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#ffffff"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="#0f172a"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="#0f172a"/></g></svg>`,
+      wB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><g fill="#ffffff" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke-linejoin="miter"/></g></svg>`,
+      wQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#ffffff" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM24.5 7.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM33 9a2 2 0 1 1-4 0 2 2 0 1 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11.5 30c3.5-1 18.5-1 22 0M12 33.5c6-1 15-1 21 0" fill="none"/></g></svg>`,
+      wK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#0f172a" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#ffffff" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#ffffff"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g></svg>`,
+      bP: `<svg viewBox="0 0 45 45" class="chess-piece"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#131720" stroke="#e2e8f0" stroke-width="1.35" stroke-linecap="round"/></svg>`,
+      bR: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#131720" fill-rule="evenodd" stroke="#e2e8f0" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12.5 32l1.5-2.5h17l1.5 2.5h-20zM12 36v-4h21v4H12z" stroke-linecap="butt"/><path d="M14 29.5v-13h17v13H14z" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M14 16.5L11 14h23l-3 2.5H14zM11 14V9h4v2h5V9h5v2h5V9h4v5H11z" stroke-linecap="butt"/><path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 16.5h17M11 14h23" fill="none" stroke="#cbd5e1" stroke-width="1.05" stroke-linejoin="miter"/></g></svg>`,
+      bN: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#e2e8f0" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" fill="#131720"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" fill="#131720"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" fill="#f8fafc" stroke="#f8fafc"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" fill="#f8fafc" stroke="#f8fafc"/></g></svg>`,
+      bB: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#e2e8f0" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><g fill="#131720" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2z"/><path d="M15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2z"/><path d="M25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke="#cbd5e1" stroke-linejoin="miter"/></g></svg>`,
+      bQ: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="#131720" fill-rule="evenodd" stroke="#e2e8f0" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><g fill="#131720"><circle cx="6" cy="12" r="2.75"/><circle cx="14" cy="9" r="2.75"/><circle cx="22.5" cy="8" r="2.75"/><circle cx="31" cy="9" r="2.75"/><circle cx="39" cy="12" r="2.75"/></g><path d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5 9 26z" stroke-linecap="butt"/><path d="M9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0" fill="none" stroke="#cbd5e1" stroke-width="1.05"/></g></svg>`,
+      bK: `<svg viewBox="0 0 45 45" class="chess-piece"><g fill="none" fill-rule="evenodd" stroke="#e2e8f0" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#131720" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#131720"/><path d="M20 8h5" stroke-linejoin="miter"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke="#cbd5e1" stroke-width="1.05"/></g></svg>`,
     };
 
     /**
@@ -534,7 +677,6 @@
           gain.connect(this.ctx.destination);
 
           if (type === 'move') {
-            // 묵직한 나무 기물 착수음
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(175, now);
             osc.frequency.exponentialRampToValueAtTime(75, now + 0.08);
@@ -543,7 +685,6 @@
             osc.start(now);
             osc.stop(now + 0.09);
           } else if (type === 'capture') {
-            // 경쾌한 잡기 타격음
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(280, now);
             osc.frequency.exponentialRampToValueAtTime(85, now + 0.12);
@@ -552,7 +693,6 @@
             osc.start(now);
             osc.stop(now + 0.13);
           } else if (type === 'castle') {
-            // 캐슬링 이중 착수음
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(190, now);
             osc.frequency.setValueAtTime(230, now + 0.07);
@@ -561,7 +701,6 @@
             osc.start(now);
             osc.stop(now + 0.16);
           } else if (type === 'check') {
-            // 체크 경고음
             osc.type = 'sine';
             osc.frequency.setValueAtTime(587.33, now);
             osc.frequency.setValueAtTime(880, now + 0.09);
@@ -570,7 +709,6 @@
             osc.start(now);
             osc.stop(now + 0.25);
           } else if (type === 'gameover') {
-            // 대국 종료 화음
             const notes = [523.25, 659.25, 783.99, 1046.5];
             notes.forEach((freq, idx) => {
               const o = this.ctx.createOscillator();
@@ -593,8 +731,8 @@
 
     /**
      * ============================================================================
-     * 3. 내장 Alpha-Beta 가지치기 + Piece-Square Tables 폴백 엔진
-     *    (오프라인이나 샌드박스 환경에서 외부 Worker가 차단되어도 즉시 작동)
+     * 3. 내장 Minimax + Alpha-Beta 가지치기 + Piece-Square Tables 폴백 엔진
+     *    (CDN/Worker 차단 환경에서도 즉시 동작)
      * ============================================================================
      */
     const FallbackEngine = (() => {
@@ -734,7 +872,6 @@
         const moves = orderMoves(tempGame.moves({ verbose: true }));
         if (moves.length === 0) return null;
 
-        // 난이도에 따른 탐색 깊이 및 무작위성 조절
         const depth = level <= 2 ? 1 : level <= 5 ? 2 : 3;
         const randomness = Math.max(0, (8 - level) * 28);
         const isMaximizing = tempGame.turn() === 'w';
@@ -747,7 +884,6 @@
           let boardVal = minimax(tempGame, depth - 1, -Infinity, Infinity, !isMaximizing);
           tempGame.undo();
 
-          // 낮은 난이도에서는 미세한 노이즈 추가
           if (randomness > 0) {
             boardVal += (Math.random() - 0.5) * randomness;
           }
@@ -777,7 +913,7 @@
 
     /**
      * ============================================================================
-     * 4. Stockfish UCI Web Worker 브리지 (자동 폴백 내장)
+     * 4. Stockfish UCI Blob Web Worker 브리지 (GitHub Pages 호환 & 자동 폴백)
      * ============================================================================
      */
     class StockfishManager {
@@ -804,7 +940,6 @@
           const workerUrl = URL.createObjectURL(blob);
           this.worker = new Worker(workerUrl);
 
-          // 4.5초 이내에 uciok/readyok 응답이 없으면 자동으로 내장 엔진 전환
           this.fallbackTimer = setTimeout(() => {
             if (!this.isReady) {
               this.activateFallback('응답 시간 초과');
@@ -854,7 +989,6 @@
             if (this.onReady) this.onReady();
           }
         } else if (line.startsWith('info ') && line.includes(' score ')) {
-          // 실시간 형세 점수 파싱 (Stockfish는 현재 차례 기준 점수를 출력하므로 백 기준으로 정규화)
           const cpMatch = line.match(/score cp (-?\d+)/);
           const mateMatch = line.match(/score mate (-?\d+)/);
           const sign = this.currentTurn === 'w' ? 1 : -1;
@@ -916,47 +1050,46 @@
       5: { name: 'Lv.5 중상급', elo: 'Elo ~1850', skill: 12, depth: 9,  movetime: 800 },
       6: { name: 'Lv.6 상급', elo: 'Elo ~2100', skill: 15, depth: 11, movetime: 1000 },
       7: { name: 'Lv.7 전문가', elo: 'Elo ~2400', skill: 18, depth: 13, movetime: 1300 },
-      8: { name: 'Lv.8 마스터', elo: 'Elo ~3000+', skill: 20, depth: 15, movetime: 1600 },
+      8: { name: 'Lv.8 마스터', elo: 'Elo ~3000+', skill: 20, depth: 14, movetime: 1600 },
     };
 
     const THEMES = [
-      { id: 'emerald', label: '그린 테마' },
-      { id: 'wood',    label: '우드 테마' },
-      { id: 'slate',   label: '블루 테마' },
+      { id: 'monochrome', label: '모노크롬' },
+      { id: 'green',      label: '클래식 그린' },
+      { id: 'wood',       label: '월넛 우드' },
     ];
 
     const state = {
       game: new Chess(),
-      playerColor: 'w',      // 'w' 또는 'b'
-      selectedSideChoice: 'w', // 'w' | 'b' | 'random'
+      playerColor: 'w',
+      selectedSideChoice: 'w',
       flipped: false,
       difficulty: 4,
       selectedSquare: null,
-      legalDestinations: [], // [{ to, captured, promotion }]
-      lastMove: null,        // { from, to }
-      hintMove: null,        // { from, to }
-      pendingPromotion: null,// { from, to }
+      legalDestinations: [],
+      lastMove: null,
+      hintMove: null,
+      pendingPromotion: null,
       isAiThinking: false,
       themeIndex: 0,
-      evalWhiteCp: 0,        // 백 기준 센티폰 점수
-      evalMate: null,        // 백 기준 메이트 수 (예: 3 또는 -2)
-      dragState: null,       // { from, startX, startY, isDragging }
+      evalWhiteCp: 0,
+      evalMate: null,
+      dragState: null,
     };
 
     const sound = new SoundFX();
 
-    // DOM 참조
     const boardEl = document.getElementById('chessboard');
+    const hintArrowOverlay = document.getElementById('hint-arrow-overlay');
     const dragGhostEl = document.getElementById('drag-ghost');
 
-    // 엔진 초기화
     const engine = new StockfishManager({
       onReady: () => {
         const badge = document.getElementById('engine-badge');
         const dot = document.getElementById('engine-dot');
         const text = document.getElementById('engine-status-text');
-        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
-        dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+        badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-200';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_#ffffff]';
         text.textContent = 'Stockfish 10 엔진 활성';
         maybeTriggerAiTurn();
       },
@@ -964,8 +1097,8 @@
         const badge = document.getElementById('engine-badge');
         const dot = document.getElementById('engine-dot');
         const text = document.getElementById('engine-status-text');
-        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30';
-        dot.className = 'w-1.5 h-1.5 rounded-full bg-sky-400';
+        badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-300';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-300';
         text.textContent = '내장 Alpha-Beta AI 활성';
         maybeTriggerAiTurn();
       },
@@ -1021,37 +1154,86 @@
         whitePercent = state.evalMate > 0 ? 96 : 4;
         displayText = (state.evalMate > 0 ? 'M' : '-M') + Math.abs(state.evalMate);
       } else {
-        // 시그모이드 곡선으로 센티폰을 5% ~ 95% 시각적 비율로 변환
         const clamped = Math.max(-1000, Math.min(1000, state.evalWhiteCp));
         whitePercent = 50 + 45 * (2 / (1 + Math.exp(-0.004 * clamped)) - 1);
         const pawns = (state.evalWhiteCp / 100).toFixed(1);
         displayText = state.evalWhiteCp > 0 ? `+${pawns}` : `${pawns}`;
       }
 
-      // 모바일 가로 바 (왼쪽 백, 오른쪽 흑)
       document.getElementById('eval-bar-mobile-white').style.width = `${whitePercent}%`;
       document.getElementById('eval-bar-mobile-black').style.width = `${100 - whitePercent}%`;
       document.getElementById('eval-text-mobile').textContent = displayText;
 
-      // 데스크톱 세로 바 (보드 방향에 따라 상/하단 비율 조정)
       const topFill = document.getElementById('eval-bar-top-fill');
       const bottomFill = document.getElementById('eval-bar-bottom-fill');
       const desktopText = document.getElementById('eval-text-desktop');
 
       if (!state.flipped) {
-        // 아래가 백(흰색), 위가 흑(검정)
-        topFill.className = 'w-full bg-slate-900 transition-all duration-500 ease-out';
+        topFill.className = 'w-full bg-[#141720] transition-all duration-500 ease-out';
         bottomFill.className = 'w-full bg-slate-100 transition-all duration-500 ease-out';
         topFill.style.height = `${100 - whitePercent}%`;
         bottomFill.style.height = `${whitePercent}%`;
       } else {
-        // 보드 회전 시 위가 백(흰색), 아래가 흑(검정)
         topFill.className = 'w-full bg-slate-100 transition-all duration-500 ease-out';
-        bottomFill.className = 'w-full bg-slate-900 transition-all duration-500 ease-out';
+        bottomFill.className = 'w-full bg-[#141720] transition-all duration-500 ease-out';
         topFill.style.height = `${whitePercent}%`;
         bottomFill.style.height = `${100 - whitePercent}%`;
       }
       desktopText.textContent = displayText;
+    }
+
+    /**
+     * 힌트 화살표 SVG 렌더링
+     */
+    function renderHintArrow() {
+      hintArrowOverlay.innerHTML = '';
+      if (!state.hintMove) return;
+
+      const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+      const getCenter = (sq) => {
+        const fileIdx = files.indexOf(sq[0]);
+        const rankIdx = 8 - parseInt(sq[1], 10);
+        const visCol = state.flipped ? 7 - fileIdx : fileIdx;
+        const visRow = state.flipped ? 7 - rankIdx : rankIdx;
+        return {
+          x: visCol * 100 + 50,
+          y: visRow * 100 + 50,
+        };
+      };
+
+      const start = getCenter(state.hintMove.from);
+      const end = getCenter(state.hintMove.to);
+
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) return;
+
+      const ux = dx / len;
+      const uy = dy / len;
+      const shortenEnd = 24;
+      const x2 = end.x - ux * shortenEnd;
+      const y2 = end.y - uy * shortenEnd;
+
+      hintArrowOverlay.innerHTML = `
+        <defs>
+          <marker id="hintArrowHead" markerWidth="4.5" markerHeight="4.5" refX="2.5" refY="2.25" orient="auto">
+            <polygon points="0 0, 4.5 2.25, 0 4.5" fill="rgba(255, 255, 255, 0.92)" />
+          </marker>
+          <filter id="arrowShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.7" />
+          </filter>
+        </defs>
+        <line
+          x1="${start.x}" y1="${start.y}"
+          x2="${x2}" y2="${y2}"
+          stroke="rgba(255, 255, 255, 0.88)"
+          stroke-width="15"
+          stroke-linecap="round"
+          marker-end="url(#hintArrowHead)"
+          filter="url(#arrowShadow)"
+        />
+      `;
     }
 
     /**
@@ -1064,7 +1246,6 @@
       const inCheck = state.game.in_check();
       const turn = state.game.turn();
 
-      // 체크 상태인 킹 위치 찾기
       let checkedKingSquare = null;
       if (inCheck) {
         for (let r = 0; r < 8; r++) {
@@ -1092,7 +1273,6 @@
             isLight ? 'sq-light' : 'sq-dark'
           }`;
 
-          // 선택된 칸, 직전 수, 힌트 수, 체크 하이라이트
           if (state.selectedSquare === squareName) {
             cell.classList.add('sq-selected');
           }
@@ -1108,7 +1288,6 @@
             cell.classList.add('sq-check');
           }
 
-          // 좌측 열 랭크 숫자(1~8) 표시
           if (visualCol === 0) {
             const rankLabel = document.createElement('span');
             rankLabel.textContent = 8 - r;
@@ -1118,7 +1297,6 @@
             cell.appendChild(rankLabel);
           }
 
-          // 하단 행 파일 문자(a~h) 표시
           if (visualRow === 7) {
             const fileLabel = document.createElement('span');
             fileLabel.textContent = files[c];
@@ -1128,7 +1306,6 @@
             cell.appendChild(fileLabel);
           }
 
-          // 기물 SVG 삽입
           if (piece) {
             const key = piece.color + piece.type.toUpperCase();
             const pieceWrapper = document.createElement('div');
@@ -1137,7 +1314,6 @@
             cell.appendChild(pieceWrapper);
           }
 
-          // 합법 이동 목적지 표시
           const destMove = state.legalDestinations.find((m) => m.to === squareName);
           if (destMove) {
             if (destMove.captured || destMove.flags.includes('e')) {
@@ -1154,6 +1330,8 @@
           boardEl.appendChild(cell);
         }
       }
+
+      renderHintArrow();
     }
 
     /**
@@ -1163,10 +1341,8 @@
       if (state.game.game_over() || state.isAiThinking) return;
       if (state.game.turn() !== state.playerColor) return;
 
-      // 이미 선택된 기물의 합법 이동 칸을 클릭한 경우 -> 이동 실행
       const targetMoves = state.legalDestinations.filter((m) => m.to === square);
       if (targetMoves.length > 0) {
-        // 폰 프로모션 여부 확인
         const isPromotion = targetMoves.some((m) => m.promotion);
         if (isPromotion) {
           openPromotionModal(state.selectedSquare, square);
@@ -1176,7 +1352,6 @@
         return;
       }
 
-      // 내 기물을 클릭한 경우 -> 선택 토글 및 합법 수 계산
       const piece = state.game.get(square);
       if (piece && piece.color === state.playerColor) {
         if (state.selectedSquare === square) {
@@ -1190,7 +1365,6 @@
         return;
       }
 
-      // 빈 칸이나 상대 기물(잡을 수 없는) 클릭 시 선택 해제
       state.selectedSquare = null;
       state.legalDestinations = [];
       renderBoard();
@@ -1214,7 +1388,7 @@
       options.forEach((opt) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'p-2.5 rounded-xl bg-slate-800 hover:bg-emerald-600/30 border border-slate-700 hover:border-emerald-400 flex flex-col items-center gap-1 transition active:scale-95';
+        btn.className = 'p-2.5 rounded-xl bg-[#1a1f2c] hover:bg-white/20 border border-white/15 hover:border-white/50 flex flex-col items-center gap-1 transition active:scale-95';
         btn.innerHTML = `
           <div class="w-11 h-11 flex items-center justify-center">${PIECE_SVGS[colorPrefix + opt.type.toUpperCase()]}</div>
           <span class="text-xs font-bold text-slate-200">${opt.label}</span>
@@ -1256,7 +1430,7 @@
     }
 
     /**
-     * AI UCI 수 실행 (예: "e7e5", "e7e8q")
+     * AI UCI 수 실행
      */
     function executeUciMove(uci) {
       if (!uci || uci.length < 4) return;
@@ -1289,7 +1463,7 @@
     }
 
     /**
-     * 착수 후 전체 UI(보드, 기보, 잡은 기물, 상태 배너, 종료 판정) 동기화
+     * 착수 후 전체 UI 동기화
      */
     function afterMoveUpdates() {
       renderBoard();
@@ -1347,7 +1521,6 @@
         }
       }
 
-      // 백이 잡은 흑의 기물 / 흑이 잡은 백의 기물
       const capturedByWhite = [];
       const capturedByBlack = [];
       let whiteScore = 0;
@@ -1415,11 +1588,11 @@
         const blackMove = history[i + 1] || '';
 
         const row = document.createElement('div');
-        row.className = 'grid grid-cols-12 items-center px-2.5 py-1.5 rounded-lg odd:bg-slate-800/45 text-xs';
+        row.className = 'grid grid-cols-12 items-center px-2.5 py-1.5 rounded-lg odd:bg-white/[0.04] text-xs';
         row.innerHTML = `
           <span class="col-span-2 text-slate-500 font-semibold">${turnNum}.</span>
-          <span class="col-span-5 font-bold ${i === history.length - 1 ? 'text-emerald-300' : 'text-slate-100'}">${whiteMove}</span>
-          <span class="col-span-5 font-bold ${i + 1 === history.length - 1 ? 'text-emerald-300' : 'text-slate-300'}">${blackMove}</span>
+          <span class="col-span-5 font-bold ${i === history.length - 1 ? 'text-white underline decoration-white/60' : 'text-slate-200'}">${whiteMove}</span>
+          <span class="col-span-5 font-bold ${i + 1 === history.length - 1 ? 'text-white underline decoration-white/60' : 'text-slate-300'}">${blackMove}</span>
         `;
         listEl.appendChild(row);
       }
@@ -1437,7 +1610,6 @@
       const turn = state.game.turn();
       const isGameOver = state.game.game_over();
 
-      // 상/하단 이름 설정 (보드 회전 반영)
       const bottomIsPlayer = !state.flipped;
       const topNameEl = document.getElementById('top-player-name');
       const bottomNameEl = document.getElementById('bottom-player-name');
@@ -1459,7 +1631,6 @@
         bottomAvatar.textContent = '🤖';
       }
 
-      // 차례 배지 업데이트
       const topInd = document.getElementById('top-turn-indicator');
       const bottomInd = document.getElementById('bottom-turn-indicator');
 
@@ -1469,22 +1640,21 @@
       if (isGameOver) {
         topInd.textContent = '종료';
         bottomInd.textContent = '종료';
-        topInd.className = bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0';
+        topInd.className = bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white/[0.06] text-slate-400 border border-white/10 shrink-0';
       } else {
         if (turn === topColor) {
           topInd.textContent = topColor === state.playerColor ? '내 차례' : 'AI 차례';
-          topInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0';
+          topInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white/15 text-white border border-white/30 shrink-0';
           bottomInd.textContent = '대기 중';
-          bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0';
+          bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white/[0.06] text-slate-400 border border-white/10 shrink-0';
         } else {
           bottomInd.textContent = bottomColor === state.playerColor ? '내 차례' : 'AI 차례';
-          bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0';
+          bottomInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white/15 text-white border border-white/30 shrink-0';
           topInd.textContent = '대기 중';
-          topInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700/60 shrink-0';
+          topInd.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white/[0.06] text-slate-400 border border-white/10 shrink-0';
         }
       }
 
-      // 상태 배너 텍스트
       const iconEl = document.getElementById('status-icon');
       const mainTextEl = document.getElementById('status-main-text');
       const subTextEl = document.getElementById('status-sub-text');
@@ -1494,7 +1664,7 @@
         if (state.game.in_checkmate()) {
           const winner = turn === 'w' ? '흑(Black)' : '백(White)';
           mainTextEl.textContent = `체크메이트! ${winner} 승리`;
-          subTextEl.textContent = '새 게임을 눌러 다시 대국할 수 있습니다.';
+          subTextEl.textContent = '새 대국을 눌러 다시 도전해 보세요.';
         } else if (state.game.in_stalemate()) {
           mainTextEl.textContent = '스테일메이트 — 무승부';
           subTextEl.textContent = '합법적인 이동 수가 없어 무승부로 종료되었습니다.';
@@ -1516,7 +1686,6 @@
         subTextEl.textContent = '최적의 응수를 계산하고 있습니다.';
       }
 
-      // 버튼 활성화 상태
       document.getElementById('btn-undo').disabled = state.game.history().length === 0 || state.isAiThinking;
       document.getElementById('btn-hint').disabled = isGameOver || state.isAiThinking || turn !== state.playerColor;
       document.getElementById('btn-resign').disabled = isGameOver;
@@ -1652,11 +1821,9 @@
         state.legalDestinations = state.game.moves({ square: state.dragState.from, verbose: true });
         renderBoard();
 
-        // 원본 칸 기물 반투명 처리
         const originCell = boardEl.querySelector(`[data-square="${state.dragState.from}"] .piece-container`);
         if (originCell) originCell.style.opacity = '0.25';
 
-        // 고스트 기물 표시
         const sqSize = boardEl.getBoundingClientRect().width / 8;
         dragGhostEl.style.width = `${sqSize * 0.9}px`;
         dragGhostEl.style.height = `${sqSize * 0.9}px`;
@@ -1679,7 +1846,6 @@
       dragGhostEl.style.display = 'none';
 
       if (!isDragging) {
-        // 단순 클릭으로 처리
         handleSquareInteraction(from);
         return;
       }
@@ -1698,7 +1864,6 @@
         }
       }
 
-      // 유효하지 않은 위치에 드롭 시 원복
       renderBoard();
     });
 
@@ -1707,7 +1872,6 @@
      * 7. UI 버튼 이벤트 리스너 등록
      * ============================================================================
      */
-    // 난이도 셀렉트 변경
     document.getElementById('difficulty-select').addEventListener('change', (e) => {
       state.difficulty = parseInt(e.target.value, 10);
       const cfg = DIFFICULTY_CONFIG[state.difficulty];
@@ -1716,28 +1880,24 @@
       showToast(`난이도가 ${cfg.name} (${cfg.elo})로 변경되었습니다.`);
     });
 
-    // 진영 선택 버튼
     document.querySelectorAll('.side-choice-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.selectedSideChoice = btn.dataset.sideChoice;
         document.querySelectorAll('.side-choice-btn').forEach((b) => {
           const active = b.dataset.sideChoice === state.selectedSideChoice;
           b.className = active
-            ? 'side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-emerald-600/25 border-emerald-500 text-emerald-200'
-            : 'side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700';
+            ? 'side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-white/15 border-white/50 text-white shadow-[0_0_12px_rgba(255,255,255,0.08)]'
+            : 'side-choice-btn py-2 px-2 rounded-xl text-xs font-bold border transition bg-[#181c27] border-white/10 text-slate-300 hover:bg-[#202634]';
         });
       });
     });
 
-    // 새 게임 버튼들
     document.getElementById('btn-start-with-settings').addEventListener('click', startNewGame);
     document.getElementById('btn-open-setup').addEventListener('click', startNewGame);
 
-    // 무르기 (플레이어 턴 단위로 복원)
     document.getElementById('btn-undo').addEventListener('click', () => {
       if (state.isAiThinking || state.game.history().length === 0) return;
 
-      // 현재 플레이어 차례라면 AI의 수와 내 수를 함께 무름 (2수 무르기)
       if (state.game.turn() === state.playerColor && state.game.history().length >= 2) {
         state.game.undo();
         state.game.undo();
@@ -1759,7 +1919,6 @@
       showToast('이전 수로 무르기를 완료했습니다.');
     });
 
-    // 힌트 요청
     document.getElementById('btn-hint').addEventListener('click', () => {
       if (state.game.game_over() || state.isAiThinking || state.game.turn() !== state.playerColor) return;
       showToast('스톡피시가 최선의 수를 분석 중입니다...');
@@ -1774,7 +1933,6 @@
       });
     });
 
-    // 보드 회전
     document.getElementById('btn-flip').addEventListener('click', () => {
       state.flipped = !state.flipped;
       renderBoard();
@@ -1783,7 +1941,6 @@
       updatePlayerBarsAndStatus();
     });
 
-    // 기권
     document.getElementById('btn-resign').addEventListener('click', () => {
       if (state.game.game_over()) return;
       engine.stop();
@@ -1793,7 +1950,6 @@
       showGameOverModal(true);
     });
 
-    // 테마 변경
     document.getElementById('btn-theme').addEventListener('click', () => {
       state.themeIndex = (state.themeIndex + 1) % THEMES.length;
       const theme = THEMES[state.themeIndex];
@@ -1801,7 +1957,6 @@
       document.getElementById('theme-label').textContent = theme.label;
     });
 
-    // 소리 켜기/끄기
     document.getElementById('btn-sound').addEventListener('click', () => {
       sound.enabled = !sound.enabled;
       document.getElementById('icon-sound-on').classList.toggle('hidden', !sound.enabled);
@@ -1810,7 +1965,6 @@
       if (sound.enabled) sound.play('move');
     });
 
-    // PGN 복사 (iframe 안전한 execCommand 방식 사용)
     document.getElementById('btn-copy-pgn').addEventListener('click', () => {
       const pgn = state.game.pgn();
       if (!pgn) {
@@ -1832,7 +1986,6 @@
       document.body.removeChild(textarea);
     });
 
-    // 대국 종료 모달 버튼
     document.getElementById('btn-modal-close').addEventListener('click', () => {
       const modal = document.getElementById('gameover-modal');
       modal.classList.add('hidden');
@@ -1846,7 +1999,6 @@
       startNewGame();
     });
 
-    // 초기 렌더링 실행
     window.addEventListener('DOMContentLoaded', () => {
       updateEvalBar();
       afterMoveUpdates();
